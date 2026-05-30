@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- *  Haruka's Gallery — main.js  (v3)
+ *  Haruka's Gallery — main.js  (v4)
  *  Theme: More More Jump! × 桐谷遙
  *
  *  ★ KEY CUSTOMIZATION POINTS ★
@@ -8,25 +8,20 @@
  *  2) ARTWORK INFO       → search "★ ARTWORK DATA ★"
  * ═══════════════════════════════════════════════════════════════
  *
- *  v3 FIXES:
- *  [1] Removed centre pillar (blocked first-person view on entry)
- *  [2] Character spawn moved to z=18 (near entrance, facing inward)
- *  [3] Camera initial yaw corrected to face inward
- *  [4] VRM T-pose fix: proper AnimationMixer crossFade idle↔walk
- *  [5] Movement direction now camera-relative (WASD follows view)
- *  [6] Character faces movement direction correctly
- *  [7] Wall collision via AABB boundary clamp
- *  [8] Image textures: encoding fixed (colorSpace = SRGBColorSpace)
- *      + texture loaded with onLoad to force material update
- *  [9] Artwork panel: camLerpT kept < 1 so panel stays open
- *  [10] Birthday table + procedural food added (optimised with
- *       shared geometries and merged materials — see PERF comments)
- *  [11] Loading screen SVG clover replaced with proper 3-heart shape
+ *  v4 CHANGES vs v3:
+ *  [A] Nameplate now renders actual text (Canvas2D → texture)
+ *  [B] Frame size auto-fits image aspect ratio — no more stretching
+ *  [C] Quaternion slerp for smooth character rotation
+ *  [D] Box3 collision for birthday table + AABB walls
+ *  [E] AnimationMixer crossFade idle↔walk (T-pose fix)
+ *  [F] Camera-relative WASD movement
+ *  [G] Birthday table, cake, food, balloons (procedural, low-poly)
+ *  [H] Warmer lighting for birthday feel
  * ═══════════════════════════════════════════════════════════════
  */
 
 import * as THREE from 'three';
-import { GLTFLoader }           from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFLoader }            from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 
 // ─────────────────────────────────────────────────────────────────
@@ -46,16 +41,21 @@ const C_GOLD  = 0xc9a96e;
 
 // ─────────────────────────────────────────────────────────────────
 //  ★ ARTWORK DATA ★
-//  title  — shown in the info panel
-//  desc   — description paragraph
-//  meta   — medium / year
-//  color  — fallback colour when no image supplied
-//  accent — subtle tinted overlay
-//  tex    — (optional) 'images/filename.jpg' for a real image
-//  pos    — [x, y, z] world position of frame centre
-//  rotY   — 0=back wall, Math.PI=front wall,
-//            Math.PI/2=left wall, -Math.PI/2=right wall
-//  size   — [width, height] in world units
+//
+//  HOW TO CUSTOMISE:
+//  • title  — text shown in info panel AND on the gold nameplate
+//  • desc   — description shown in panel
+//  • meta   — "medium · year" line in panel
+//  • color  — fallback canvas colour if no image supplied
+//  • accent — subtle tinted overlay on canvas
+//  • tex    — (optional) path like 'images/myart.jpg'
+//             Frame will auto-resize to match image aspect ratio!
+//  • pos    — [x, y, z] world centre of the frame
+//  • rotY   — 0 = back wall, Math.PI = front wall,
+//             Math.PI/2 = left wall, -Math.PI/2 = right wall
+//  • size   — [maxWidth, maxHeight] MAXIMUM bounds; actual frame
+//             scales to image ratio within these bounds.
+//             For colour-only frames, used as-is.
 // ─────────────────────────────────────────────────────────────────
 const ARTWORKS = [
   {
@@ -63,62 +63,62 @@ const ARTWORKS = [
     desc:  '四月の校庭。散りゆく桜の花びらが風に乗って舞い上がり、遥の笑顔を縁取る。「また来年も一緒に見ようね」——あの約束は、今も胸の中で咲き続けている。',
     meta:  'Digital · 2024',
     color: 0xffe4e8, accent: C_BLUE,
-    tex:  'images/1031.png',
-    pos: [-10, 2.3, -ROOM_D / 2 + 0.35], rotY: 0, size: [2.8, 1.9],
+    tex:   'images/1031.png',
+    pos:   [-10, 2.3, -ROOM_D / 2 + 0.35], rotY: 0, size: [3.2, 2.4],
   },
   {
     title: 'Clover Stage',
     desc:  'スポットライトの下、緑のクローバーが三つ葉を広げる。More More Jump! の舞台は今日も満員。「みんなの笑顔がわたしのエネルギー！」',
     meta:  'Digital · 2024',
     color: 0xd4f5b0, accent: C_GREEN,
-    pos: [0, 2.3, -ROOM_D / 2 + 0.35], rotY: 0, size: [2.8, 1.9],
+    pos:   [0, 2.3, -ROOM_D / 2 + 0.35], rotY: 0, size: [2.8, 1.9],
   },
   {
     title: '夜の水族館',
     desc:  '閉館後の水族館、二人きり。水槽の青い光が遥の横顔を照らす。ペンギンたちが泳ぎ回る中、時間だけが静かに溶けていった。',
     meta:  'Digital · 2024',
     color: 0xb8e0ff, accent: C_BLUE,
-    pos: [10, 2.3, -ROOM_D / 2 + 0.35], rotY: 0, size: [2.8, 1.9],
+    pos:   [10, 2.3, -ROOM_D / 2 + 0.35], rotY: 0, size: [2.8, 1.9],
   },
   {
     title: '四葉のお守り',
     desc:  '手のひらに乗った小さな四葉のクローバー。「これ、きみに」——あの日渡されたお守りは、今でも財布の中で光り続けている。',
     meta:  'Digital · 2024',
     color: 0xc8f0a0, accent: C_GREEN,
-    pos: [-ROOM_W / 2 + 0.35, 2.3, 0], rotY: Math.PI / 2, size: [2.4, 1.7],
+    pos:   [-ROOM_W / 2 + 0.35, 2.3, 0], rotY: Math.PI / 2, size: [2.4, 1.7],
   },
   {
     title: 'Blue Horizon',
     desc:  '遥かな水平線。水色と白だけで描かれた世界に、ひとつの星が瞬く。「どんなに遠くても、同じ空の下にいるから大丈夫」',
     meta:  'Digital · 2024',
     color: 0xd0ecff, accent: C_BLUE,
-    pos: [-ROOM_W / 2 + 0.35, 2.3, 10], rotY: Math.PI / 2, size: [2.4, 1.7],
+    pos:   [-ROOM_W / 2 + 0.35, 2.3, 10], rotY: Math.PI / 2, size: [2.4, 1.7],
   },
   {
     title: 'Happy Birthday, 遥',
     desc:  '今日という特別な日に、あなたへ届けたい言葉がある。いつも笑顔をありがとう。これからもずっと、あなたの隣で応援し続けるよ。🎂💚',
     meta:  'With Love · 2024',
     color: 0xfff0d0, accent: C_GOLD,
-    pos: [ROOM_W / 2 - 0.35, 2.3, 0], rotY: -Math.PI / 2, size: [3.0, 2.0],
+    pos:   [ROOM_W / 2 - 0.35, 2.3, 0], rotY: -Math.PI / 2, size: [3.0, 2.0],
   },
   {
     title: 'Penguin Parade',
     desc:  '桐谷遙の愛するペンギンたち。よちよち歩きのフォルムが愛らしく、見ているだけで心がほっこりする。「ねぇ、一番右の子が一番かわいくない？」',
     meta:  'Digital · 2024',
     color: 0xe0f4ff, accent: C_BLUE,
-    pos: [ROOM_W / 2 - 0.35, 2.3, 10], rotY: -Math.PI / 2, size: [2.4, 1.7],
+    pos:   [ROOM_W / 2 - 0.35, 2.3, 10], rotY: -Math.PI / 2, size: [2.4, 1.7],
   },
 ];
 
 // ─────────────────────────────────────────────────────────────────
 //  ★ MODEL REPLACEMENT ★
-//  Put your VRM file at  models/Shiho.vrm
-//  Change the filename below if yours is different.
+//  File must be at:  models/Shiho.vrm
+//  Change the path below if yours differs.
 // ─────────────────────────────────────────────────────────────────
 const VRM_PATH = 'models/Shiho.vrm';
 
 // ─────────────────────────────────────────────────────────────────
-//  DOM REFS
+//  DOM
 // ─────────────────────────────────────────────────────────────────
 const canvas     = document.getElementById('canvas');
 const loadScreen = document.getElementById('loading-screen');
@@ -151,40 +151,39 @@ scene.background = new THREE.Color(0x111111);
 scene.fog        = new THREE.FogExp2(0x1a1410, 0.018);
 
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 120);
+const clock  = new THREE.Clock();
 
 // ─────────────────────────────────────────────────────────────────
-//  CLOCK & STATE
+//  STATE
 // ─────────────────────────────────────────────────────────────────
-const clock = new THREE.Clock();
-
-// [FIX 2] Spawn near entrance (z≈17), facing INTO the gallery (angle=Math.PI)
 const SPAWN = new THREE.Vector3(0, 0, 17);
 
 const state = {
-  vrm:            null,
-  mixer:          null,
-  idleAction:     null,
-  walkAction:     null,
-  isWalking:      false,
-  keys:           {},
-  charPos:        SPAWN.clone(),
-  charAngle:      Math.PI,          // faces –Z (into gallery)
-  camYaw:         Math.PI,          // camera behind character
-  camPitch:       0.28,
-  camDist:        4.2,
-  mouseDragging:  false,
-  mouseHasMoved:  false,
+  vrm: null, mixer: null,
+  idleAction: null, walkAction: null,
+  isWalking: false,
+  keys: {},
+  charPos:    SPAWN.clone(),
+  charQuat:   new THREE.Quaternion(),   // [C] Quaternion for smooth rotation
+  targetQuat: new THREE.Quaternion(),
+  camYaw:     Math.PI,   // camera behind spawn, facing inward
+  camPitch:   0.28,
+  camDist:    4.2,
+  mouseDragging: false, mouseHasMoved: false,
   lastMX: 0, lastMY: 0,
   artworkMeshes:  [],
   focusedArtwork: null,
-  camFocusTarget: null,
-  camFocusOrigin: null,
-  camLerpT:       1,
+  camFocusTarget: null, camFocusOrigin: null,
+  camLerpT: 1,
   needle: document.getElementById('compass-needle'),
+  // [D] Collision boxes
+  colliders: [],
+  // Animated objects
+  candleLight: null, cakeCandles: [], balloons: [],
 };
 
 // ─────────────────────────────────────────────────────────────────
-//  LOADING MANAGER
+//  LOADING
 // ─────────────────────────────────────────────────────────────────
 const manager = new THREE.LoadingManager();
 manager.onProgress = (_url, loaded, total) => {
@@ -192,569 +191,493 @@ manager.onProgress = (_url, loaded, total) => {
   loadBar.style.width  = pct + '%';
   loadText.textContent = `正在前往畫展... ${pct}%`;
 };
-
 function finishLoading() {
   loadText.textContent = '歡迎蒞臨！';
   loadBar.style.width  = '100%';
-  setTimeout(() => {
-    loadScreen.classList.add('fade-out');
-    hud.classList.add('visible');
-  }, 700);
+  setTimeout(() => { loadScreen.classList.add('fade-out'); hud.classList.add('visible'); }, 700);
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  LIGHTING  (warmer spots for birthday feel)
+//  LIGHTING  [H] Warmer birthday atmosphere
 // ─────────────────────────────────────────────────────────────────
 function buildLighting() {
-  // Warm ambient
-  scene.add(new THREE.AmbientLight(0xfff3e0, 0.6));
+  scene.add(new THREE.AmbientLight(0xfff3e0, 0.62));
 
-  // Main shadow-casting overhead light
-  const dir = new THREE.DirectionalLight(0xfff5e0, 1.15);
+  const dir = new THREE.DirectionalLight(0xfff5e0, 1.1);
   dir.position.set(0, ROOM_H - 0.5, 0);
-  dir.castShadow            = true;
-  dir.shadow.mapSize.width  = 2048;
-  dir.shadow.mapSize.height = 2048;
-  dir.shadow.camera.near    = 0.5;
-  dir.shadow.camera.far     = 60;
-  dir.shadow.camera.left    = -16;
-  dir.shadow.camera.right   = 16;
-  dir.shadow.camera.top     = 24;
-  dir.shadow.camera.bottom  = -24;
-  dir.shadow.bias           = -0.0005;
+  dir.castShadow = true;
+  dir.shadow.mapSize.set(2048, 2048);
+  dir.shadow.camera.left = -16; dir.shadow.camera.right  = 16;
+  dir.shadow.camera.top  =  24; dir.shadow.camera.bottom = -24;
+  dir.shadow.camera.near = 0.5; dir.shadow.camera.far    = 60;
+  dir.shadow.bias = -0.0005;
   scene.add(dir);
 
-  // [PERF] Ceiling spot grid — warmer orange for birthday warmth
-  // Using SpotLight instead of PointLight: directional = fewer overdraw pixels
-  const spotGrid = [
-    [-9,-18],[0,-18],[9,-18],
-    [-9,0],  [0,0],  [9,0],
-    [-9,16], [0,16], [9,16],
-  ];
-  spotGrid.forEach(([x, z]) => {
-    // [FIX 4] Warmer colour: 0xffcca0 (orange-warm) instead of cool white
-    const spot = new THREE.SpotLight(0xffcca0, 1.0, 20, Math.PI / 7, 0.5, 1.6);
-    spot.position.set(x, ROOM_H - 0.1, z);
-    spot.target.position.set(x, 0, z);
-    spot.castShadow = false; // [PERF] only dir light casts shadow
-    scene.add(spot, spot.target);
+  // Warm ceiling spots (orange-warm, birthday feel)
+  [[-9,-18],[0,-18],[9,-18],[-9,0],[0,0],[9,0],[-9,16],[0,16],[9,16]].forEach(([x,z]) => {
+    const s = new THREE.SpotLight(0xffcca0, 1.0, 20, Math.PI/7, 0.5, 1.6);
+    s.position.set(x, ROOM_H-0.1, z); s.target.position.set(x,0,z);
+    s.castShadow = false;
+    scene.add(s, s.target);
   });
 
-  // Birthday table warm glow
-  const tableGlow = new THREE.PointLight(0xff9966, 0.8, 12);
-  tableGlow.position.set(0, 1.8, -6);
-  scene.add(tableGlow);
+  // Table warm glow
+  const tg = new THREE.PointLight(0xff9966, 0.8, 12);
+  tg.position.set(0, 1.8, -6); scene.add(tg);
 
-  // Cake candle flicker (animated in loop)
-  state.candleLight = new THREE.PointLight(0xffaa33, 1.2, 4);
+  // Candle flicker light (animated in loop)
+  state.candleLight = new THREE.PointLight(0xffaa33, 1.2, 5);
   state.candleLight.position.set(0, 2.2, -6);
   scene.add(state.candleLight);
 
-  // MMJ green accent
-  const gf = new THREE.PointLight(C_GREEN, 0.3, 8);
-  gf.position.set(0, 2, 19);
-  scene.add(gf);
-
-  // Haruka blue accent
-  const bf = new THREE.PointLight(C_BLUE, 0.25, 10);
-  bf.position.set(-11, 2, 0);
-  scene.add(bf);
+  scene.add(Object.assign(new THREE.PointLight(C_GREEN, 0.28, 8), { position: new THREE.Vector3(0, 2, 19) }));
+  scene.add(Object.assign(new THREE.PointLight(C_BLUE,  0.22, 10),{ position: new THREE.Vector3(-11,2,0) }));
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  PROCEDURAL MATERIALS  (all canvas-generated, zero external files)
+//  SHARED MATERIALS  [PERF] reused across many meshes
 // ─────────────────────────────────────────────────────────────────
-function makeWallMat() {
-  return new THREE.MeshStandardMaterial({ color: C_WALL, roughness: 0.88 });
-}
+const MAT = {
+  metal: new THREE.MeshStandardMaterial({ color: C_METAL, roughness: 0.3, metalness: 0.85 }),
+  gold:  new THREE.MeshStandardMaterial({ color: C_GOLD,  roughness: 0.25, metalness: 0.9 }),
+  frame: new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.35, metalness: 0.6 }),
+  wire:  new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5, metalness: 0.8 }),
+};
 
+// ─────────────────────────────────────────────────────────────────
+//  PROCEDURAL FLOOR TEXTURE  [PERF] canvas-generated, no file
+// ─────────────────────────────────────────────────────────────────
 function makeFloorMat() {
-  // [PERF] Single 512px canvas texture, tiled — no external file
   const size = 512, cv = document.createElement('canvas');
   cv.width = cv.height = size;
   const ctx = cv.getContext('2d');
-  ctx.fillStyle = '#7a5c12';
-  ctx.fillRect(0, 0, size, size);
-  const pw = size / 6;
-  for (let i = 0; i < 6; i++) {
-    const x = i * pw;
-    ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, size); ctx.stroke();
-    for (let g = 0; g < 14; g++) {
-      const y = g * (size / 14) + Math.random() * 6;
-      ctx.strokeStyle = `rgba(${Math.random() > 0.5 ? 180 : 100},90,20,0.08)`;
-      ctx.lineWidth = 0.6 + Math.random();
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + pw, y + (Math.random()-0.5)*18); ctx.stroke();
+  ctx.fillStyle = '#7a5c12'; ctx.fillRect(0,0,size,size);
+  const pw = size/6;
+  for (let i=0;i<6;i++) {
+    const x = i*pw;
+    ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,size); ctx.stroke();
+    for (let g=0;g<14;g++) {
+      const y = g*(size/14)+Math.random()*6;
+      ctx.strokeStyle=`rgba(${Math.random()>.5?180:100},90,20,0.08)`;
+      ctx.lineWidth=0.6+Math.random();
+      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+pw,y+(Math.random()-.5)*18); ctx.stroke();
     }
   }
   const tex = new THREE.CanvasTexture(cv);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(ROOM_W / 4, ROOM_D / 4);
+  tex.repeat.set(ROOM_W/4, ROOM_D/4);
   return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.72 });
 }
 
-const _metalMat = new THREE.MeshStandardMaterial({ color: C_METAL, roughness: 0.3, metalness: 0.85 });
-const _goldMat  = new THREE.MeshStandardMaterial({ color: C_GOLD,  roughness: 0.25, metalness: 0.9 });
-// [PERF] Shared material instances — reused across all geometry that needs them
-
 // ─────────────────────────────────────────────────────────────────
-//  HEART-CLOVER HELPERS  (SVG-style via Canvas2D bezier)
+//  [A] NAMEPLATE TEXTURE — renders actual text via Canvas2D
+//  Returns a THREE.Texture with the title drawn in gold serif font
 // ─────────────────────────────────────────────────────────────────
-
-// [PERF] Build heart texture once, reuse across all clovers
-let _heartTex = null;
-function getHeartTex() {
-  if (_heartTex) return _heartTex;
-  const size = 256, cv = document.createElement('canvas');
-  cv.width = cv.height = size;
+function makeNameplateTex(title) {
+  const W = 512, H = 96;
+  const cv  = document.createElement('canvas');
+  cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
-  ctx.clearRect(0, 0, size, size);
-  ctx.fillStyle = '#88dd44';
-  // Heart: tip points DOWN (toward clover centre when rotated)
-  const x = size/2, y = size*0.44, w = size*0.38, h = size*0.36;
-  ctx.beginPath();
-  ctx.moveTo(x, y + h);
-  ctx.bezierCurveTo(x - w*1.6, y + h*0.55, x - w*1.6, y - h*0.85, x, y - h*0.35);
-  ctx.bezierCurveTo(x + w*1.6, y - h*0.85, x + w*1.6, y + h*0.55, x, y + h);
-  ctx.closePath();
-  ctx.fill();
-  _heartTex = new THREE.CanvasTexture(cv);
-  return _heartTex;
+
+  // Gold gradient background
+  const grad = ctx.createLinearGradient(0,0,W,0);
+  grad.addColorStop(0,   '#2a1e08');
+  grad.addColorStop(0.5, '#4a3410');
+  grad.addColorStop(1,   '#2a1e08');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,H);
+
+  // Top/bottom gold lines
+  ctx.strokeStyle = '#c9a96e'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(12,10); ctx.lineTo(W-12,10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(12,H-10); ctx.lineTo(W-12,H-10); ctx.stroke();
+
+  // Title text
+  ctx.fillStyle    = '#e8d5a3';
+  ctx.font         = `300 ${H * 0.38}px "Cormorant Garamond", Georgia, serif`;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(title, W/2, H/2);
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
-// Shared clover material
+// ─────────────────────────────────────────────────────────────────
+//  HEART-CLOVER  [PERF] shared texture & material
+// ─────────────────────────────────────────────────────────────────
+let _cloverTex = null;
+function getCloverTex() {
+  if (_cloverTex) return _cloverTex;
+  const s = 256, cv = document.createElement('canvas');
+  cv.width = cv.height = s;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,s,s);
+  ctx.fillStyle = '#88dd44';
+  const x=s/2, y=s*0.44, w=s*0.38, h=s*0.36;
+  ctx.beginPath();
+  ctx.moveTo(x, y+h);
+  ctx.bezierCurveTo(x-w*1.6, y+h*0.55, x-w*1.6, y-h*0.85, x, y-h*0.35);
+  ctx.bezierCurveTo(x+w*1.6, y-h*0.85, x+w*1.6, y+h*0.55, x, y+h);
+  ctx.closePath(); ctx.fill();
+  _cloverTex = new THREE.CanvasTexture(cv);
+  return _cloverTex;
+}
+
 let _cloverMat = null;
-function getCloverMat(flat) {
-  // [PERF] One material for floor, one for sculpture — not per-instance
-  if (!_cloverMat) {
-    _cloverMat = new THREE.MeshStandardMaterial({
-      map: getHeartTex(),
-      transparent: true, alphaTest: 0.05,
-      side: THREE.DoubleSide,
-      emissive: new THREE.Color(C_GREEN), emissiveMap: getHeartTex(), emissiveIntensity: 0.12,
-    });
-  }
+function cloverMat() {
+  if (_cloverMat) return _cloverMat;
+  const t = getCloverTex();
+  _cloverMat = new THREE.MeshStandardMaterial({
+    map: t, transparent: true, alphaTest: 0.05, side: THREE.DoubleSide,
+    emissive: new THREE.Color(C_GREEN), emissiveMap: t, emissiveIntensity: 0.12,
+  });
   return _cloverMat;
 }
 
-/**
- * Three-leaf clover: 3 heart planes rotated 120° apart, tips pointing inward.
- * flat=true → horizontal floor inlay   flat=false → upright pedestal sculpture
- */
-function buildClover(cx, cy, cz, scale = 1, flat = true) {
-  const mat      = getCloverMat(flat);
-  const lR       = 0.22 * scale;   // lobe radius from centre
-  const lS       = 0.32 * scale;   // leaf plane size
-
-  // [PERF] Share one PlaneGeometry per clover call
-  const geo = new THREE.PlaneGeometry(lS, lS);
-
-  for (let i = 0; i < 3; i++) {
-    const a  = (i * Math.PI * 2) / 3;
-    const ox = Math.sin(a) * lR, oz = Math.cos(a) * lR;
-    const pl = new THREE.Mesh(geo, mat);
+function buildClover(cx, cy, cz, scale=1, flat=true) {
+  const lR = 0.22*scale, lS = 0.32*scale;
+  const geo = new THREE.PlaneGeometry(lS, lS); // [PERF] shared geo per call
+  for (let i=0;i<3;i++) {
+    const a = (i*Math.PI*2)/3;
+    const pl = new THREE.Mesh(geo, cloverMat());
     if (flat) {
-      pl.rotation.x = -Math.PI / 2;
-      pl.rotation.z = a;
-      pl.position.set(cx + ox, cy + 0.006, cz + oz);
+      pl.rotation.x = -Math.PI/2; pl.rotation.z = a;
+      pl.position.set(cx+Math.sin(a)*lR, cy+0.006, cz+Math.cos(a)*lR);
     } else {
-      pl.rotation.y = -a;
-      pl.rotation.z = Math.PI;
-      pl.position.set(cx + ox, cy, cz + oz);
+      pl.rotation.y = -a; pl.rotation.z = Math.PI;
+      pl.position.set(cx+Math.sin(a)*lR, cy, cz+Math.cos(a)*lR);
     }
     scene.add(pl);
   }
-  // Stem
-  const stemMat = new THREE.MeshStandardMaterial({
-    color: C_GREEN, roughness: 0.5,
-    emissive: new THREE.Color(C_GREEN), emissiveIntensity: 0.1,
-  });
-  const stemH = flat ? 0.008 : 0.22 * scale;
-  const stem  = new THREE.Mesh(new THREE.CylinderGeometry(0.02*scale, 0.025*scale, stemH, 8), stemMat);
-  stem.position.set(cx, cy + stemH / 2, cz);
-  scene.add(stem);
+  const sM = new THREE.MeshStandardMaterial({ color: C_GREEN, roughness: 0.5, emissive: new THREE.Color(C_GREEN), emissiveIntensity: 0.1 });
+  const sH = flat ? 0.008 : 0.22*scale;
+  const st = new THREE.Mesh(new THREE.CylinderGeometry(0.02*scale, 0.025*scale, sH, 8), sM);
+  st.position.set(cx, cy+sH/2, cz); scene.add(st);
 }
 
 // ─────────────────────────────────────────────────────────────────
 //  GALLERY ARCHITECTURE
 // ─────────────────────────────────────────────────────────────────
 function buildGallery() {
-  const wallMat  = makeWallMat();
+  const wallMat  = new THREE.MeshStandardMaterial({ color: C_WALL, roughness: 0.88 });
   const floorMat = makeFloorMat();
   const ceilMat  = new THREE.MeshStandardMaterial({ color: C_CEIL, roughness: 0.9 });
 
-  // [PERF] Helper: add a box with minimal args
-  const box = (w, h, d, mat, x, y, z, shadow = true) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-    m.position.set(x, y, z);
-    if (shadow) { m.castShadow = true; m.receiveShadow = true; }
-    scene.add(m); return m;
+  const box = (w,h,d,mat,x,y,z,sh=true) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+    m.position.set(x,y,z); if(sh){m.castShadow=true;m.receiveShadow=true;} scene.add(m); return m;
   };
 
   // Room shell
-  box(ROOM_W, 0.15, ROOM_D, floorMat, 0, -0.075, 0);
-  box(ROOM_W, 0.15, ROOM_D, ceilMat,  0, ROOM_H + 0.075, 0, false);
-  box(ROOM_W, ROOM_H, WALL_T, wallMat, 0, ROOM_H/2, -ROOM_D/2);
-  box(ROOM_W, ROOM_H, WALL_T, wallMat, 0, ROOM_H/2,  ROOM_D/2);
-  box(WALL_T, ROOM_H, ROOM_D, wallMat, -ROOM_W/2, ROOM_H/2, 0);
-  box(WALL_T, ROOM_H, ROOM_D, wallMat,  ROOM_W/2, ROOM_H/2, 0);
+  box(ROOM_W,0.15,ROOM_D, floorMat, 0,-0.075,0);
+  box(ROOM_W,0.15,ROOM_D, ceilMat,  0,ROOM_H+0.075,0,false);
+  box(ROOM_W,ROOM_H,WALL_T, wallMat, 0,ROOM_H/2,-ROOM_D/2);
+  box(ROOM_W,ROOM_H,WALL_T, wallMat, 0,ROOM_H/2, ROOM_D/2);
+  box(WALL_T,ROOM_H,ROOM_D, wallMat,-ROOM_W/2,ROOM_H/2,0);
+  box(WALL_T,ROOM_H,ROOM_D, wallMat, ROOM_W/2,ROOM_H/2,0);
 
-  // Skirting boards
-  box(ROOM_W, 0.12, 0.06, _metalMat, 0, 0.06, -ROOM_D/2+0.13);
-  box(ROOM_W, 0.12, 0.06, _metalMat, 0, 0.06,  ROOM_D/2-0.13);
-  box(0.06, 0.12, ROOM_D, _metalMat, -ROOM_W/2+0.13, 0.06, 0);
-  box(0.06, 0.12, ROOM_D, _metalMat,  ROOM_W/2-0.13, 0.06, 0);
+  // Skirting
+  box(ROOM_W,0.12,0.06,MAT.metal,0,0.06,-ROOM_D/2+0.13);
+  box(ROOM_W,0.12,0.06,MAT.metal,0,0.06, ROOM_D/2-0.13);
+  box(0.06,0.12,ROOM_D,MAT.metal,-ROOM_W/2+0.13,0.06,0);
+  box(0.06,0.12,ROOM_D,MAT.metal, ROOM_W/2-0.13,0.06,0);
 
-  // Ceiling picture rail
-  const rH = ROOM_H - 0.08;
-  box(ROOM_W, 0.06, 0.06, _metalMat, 0, rH, -ROOM_D/2+0.15);
-  box(ROOM_W, 0.06, 0.06, _metalMat, 0, rH,  ROOM_D/2-0.15);
-  box(0.06, 0.06, ROOM_D, _metalMat, -ROOM_W/2+0.15, rH, 0);
-  box(0.06, 0.06, ROOM_D, _metalMat,  ROOM_W/2+0.15, rH, 0);
+  // Ceiling rail
+  const rH = ROOM_H-0.08;
+  box(ROOM_W,0.06,0.06,MAT.metal,0,rH,-ROOM_D/2+0.15);
+  box(ROOM_W,0.06,0.06,MAT.metal,0,rH, ROOM_D/2-0.15);
+  box(0.06,0.06,ROOM_D,MAT.metal,-ROOM_W/2+0.15,rH,0);
+  box(0.06,0.06,ROOM_D,MAT.metal, ROOM_W/2-0.15,rH,0);
 
-  // [FIX 1] Removed centre pillar — it was blocking the entrance view
+  // Benches (offset from table area)
+  buildBench(-5.5,-4); buildBench(5.5,-4);
+  buildBench(-5.5,-16);buildBench(5.5,-16);
 
-  // Benches (moved aside so table area is clear)
-  buildBench(-5.5, -4);  buildBench(5.5, -4);
-  buildBench(-5.5, -16); buildBench(5.5, -16);
-
-  // Pedestals (in corners, not centre path)
-  buildPedestal(-6, -20); buildPedestal(6, -20);
+  // Pedestals with clover
+  buildPedestal(-6,-20); buildPedestal(6,-20);
 
   // Ceiling fixtures
   buildCeilingFixtures();
 
-  // Penguin corners
-  buildPenguin(-ROOM_W/2+1.2, 0,  ROOM_D/2-1.5);
-  buildPenguin(-ROOM_W/2+1.2, 0, -ROOM_D/2+1.5);
-  buildPenguin( ROOM_W/2-1.2, 0,  ROOM_D/2-1.5);
+  // Penguins
+  buildPenguin(-ROOM_W/2+1.2,0, ROOM_D/2-1.5);
+  buildPenguin(-ROOM_W/2+1.2,0,-ROOM_D/2+1.5);
+  buildPenguin( ROOM_W/2-1.2,0, ROOM_D/2-1.5);
 
-  // Clover floor inlays
-  buildClover(-6, 0, 5,  1.4, true);
-  buildClover( 6, 0, 5,  1.4, true);
-  buildClover( 0, 0, -16, 1.6, true);
+  // Floor clover inlays
+  buildClover(-6,0,5,  1.4,true);
+  buildClover( 6,0,5,  1.4,true);
+  buildClover( 0,0,-16,1.6,true);
 }
 
-function buildBench(x, z) {
+function buildBench(x,z) {
   const cush = new THREE.MeshStandardMaterial({ color: 0x2a1a0a, roughness: 0.85 });
   const add = (w,h,d,mat,px,py,pz) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
-    m.position.set(px,py,pz); m.castShadow = m.receiveShadow = true; scene.add(m);
+    const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+    m.position.set(px,py,pz); m.castShadow=m.receiveShadow=true; scene.add(m);
   };
-  add(1.8, 0.08, 0.55, cush,    x, 0.45, z);
-  add(1.84,0.015,0.57,_goldMat, x, 0.49, z);
+  add(1.8,0.08,0.55,cush,x,0.45,z);
+  add(1.84,0.015,0.57,MAT.gold,x,0.49,z);
   [[x-0.75,z-0.2],[x+0.75,z-0.2],[x-0.75,z+0.2],[x+0.75,z+0.2]].forEach(([px,pz])=>{
-    add(0.04,0.45,0.04,_metalMat,px,0.225,pz);
+    add(0.04,0.45,0.04,MAT.metal,px,0.225,pz);
   });
 }
 
-function buildPedestal(x, z) {
-  const bMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3, metalness: 0.7 });
-  const add = (w,h,d,mat,px,py,pz) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
-    m.position.set(px,py,pz); m.castShadow = m.receiveShadow = true; scene.add(m);
+function buildPedestal(x,z) {
+  const bM = new THREE.MeshStandardMaterial({color:0x111111,roughness:0.3,metalness:0.7});
+  const add = (w,h,d,mat,px,py,pz)=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+    m.position.set(px,py,pz); m.castShadow=m.receiveShadow=true; scene.add(m);
   };
-  add(0.55,1.1,0.55, bMat,   x, 0.55, z);
-  add(0.65,0.04,0.65,_goldMat, x, 1.12, z);
-  add(0.45,0.04,0.45,_goldMat, x, 0.01, z);
-  buildClover(x, 1.22, z, 0.9, false);
+  add(0.55,1.1,0.55,bM,x,0.55,z);
+  add(0.65,0.04,0.65,MAT.gold,x,1.12,z);
+  add(0.45,0.04,0.45,MAT.gold,x,0.01,z);
+  buildClover(x,1.22,z,0.9,false);
 }
 
 function buildCeilingFixtures() {
-  // [PERF] Shared geometries for all fixtures
-  const rGeo  = new THREE.TorusGeometry(0.12, 0.025, 8, 24);
-  const dGeo  = new THREE.CylinderGeometry(0.08, 0.08, 0.04, 16);
-  const bMat  = new THREE.MeshStandardMaterial({
-    color: 0xfff0cc, emissive: new THREE.Color(0xfff0cc), emissiveIntensity: 1.2,
-  });
-  const spots = [[-9,-18],[0,-18],[9,-18],[-9,0],[0,0],[9,0],[-9,16],[0,16],[9,16]];
-  spots.forEach(([x,z]) => {
-    const ring = new THREE.Mesh(rGeo, _metalMat);
-    ring.rotation.x = Math.PI/2; ring.position.set(x, ROOM_H-0.05, z); scene.add(ring);
-    const disc = new THREE.Mesh(dGeo, _metalMat);
-    disc.position.set(x, ROOM_H-0.05, z); scene.add(disc);
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.05,8,6), bMat);
-    bulb.position.set(x, ROOM_H-0.1, z); scene.add(bulb);
+  const rG = new THREE.TorusGeometry(0.12,0.025,8,24);
+  const dG = new THREE.CylinderGeometry(0.08,0.08,0.04,16);
+  const bM = new THREE.MeshStandardMaterial({color:0xfff0cc,emissive:new THREE.Color(0xfff0cc),emissiveIntensity:1.2});
+  [[-9,-18],[0,-18],[9,-18],[-9,0],[0,0],[9,0],[-9,16],[0,16],[9,16]].forEach(([x,z])=>{
+    const rg=new THREE.Mesh(rG,MAT.metal); rg.rotation.x=Math.PI/2; rg.position.set(x,ROOM_H-.05,z); scene.add(rg);
+    const dc=new THREE.Mesh(dG,MAT.metal); dc.position.set(x,ROOM_H-.05,z); scene.add(dc);
+    const bl=new THREE.Mesh(new THREE.SphereGeometry(.05,8,6),bM); bl.position.set(x,ROOM_H-.1,z); scene.add(bl);
   });
 }
 
-function buildPenguin(x, yBase, z) {
-  const dM = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.6 });
-  const wM = new THREE.MeshStandardMaterial({ color: 0xedf2f7, roughness: 0.7 });
-  const bM = new THREE.MeshStandardMaterial({ color: C_BLUE, roughness: 0.4, emissive: new THREE.Color(C_BLUE), emissiveIntensity: 0.06 });
-  const oM = new THREE.MeshStandardMaterial({ color: 0xfd9800, roughness: 0.5 });
-  const add = (geo, mat, ox, oy, oz, rx=0, ry=0, rz=0) => {
-    const m = new THREE.Mesh(geo, mat);
-    m.position.set(x+ox, yBase+oy, z+oz); m.rotation.set(rx,ry,rz); m.castShadow=true; scene.add(m);
+function buildPenguin(x,yBase,z) {
+  const dM=new THREE.MeshStandardMaterial({color:0x111827,roughness:0.6});
+  const wM=new THREE.MeshStandardMaterial({color:0xedf2f7,roughness:0.7});
+  const bM=new THREE.MeshStandardMaterial({color:C_BLUE,roughness:0.4,emissive:new THREE.Color(C_BLUE),emissiveIntensity:0.06});
+  const oM=new THREE.MeshStandardMaterial({color:0xfd9800,roughness:0.5});
+  const add=(geo,mat,ox,oy,oz,rx=0,ry=0,rz=0)=>{
+    const m=new THREE.Mesh(geo,mat); m.position.set(x+ox,yBase+oy,z+oz); m.rotation.set(rx,ry,rz); m.castShadow=true; scene.add(m);
   };
-  add(new THREE.SphereGeometry(0.22,12,10,0,Math.PI*2,0,Math.PI*0.75), dM, 0,0.30,0);
-  add(new THREE.SphereGeometry(0.13,10,8), wM, 0,0.34,0.10);
-  add(new THREE.SphereGeometry(0.14,10,8), dM, 0,0.62,0);
-  add(new THREE.SphereGeometry(0.025,6,5), wM, -0.055,0.68,0.10);
-  add(new THREE.SphereGeometry(0.025,6,5), wM,  0.055,0.68,0.10);
-  add(new THREE.SphereGeometry(0.015,6,5), dM, -0.055,0.68,0.118);
-  add(new THREE.SphereGeometry(0.015,6,5), dM,  0.055,0.68,0.118);
-  add(new THREE.ConeGeometry(0.03,0.08,6), oM, 0,0.64,0.14, Math.PI/2,0,0);
-  add(new THREE.TorusGeometry(0.135,0.02,6,16), bM, 0,0.55,0, Math.PI/2,0,0);
-  add(new THREE.BoxGeometry(0.07,0.02,0.12), oM, -0.08,0.02,0.04);
-  add(new THREE.BoxGeometry(0.07,0.02,0.12), oM,  0.08,0.02,0.04);
+  add(new THREE.SphereGeometry(0.22,12,10,0,Math.PI*2,0,Math.PI*.75),dM,0,.30,0);
+  add(new THREE.SphereGeometry(0.13,10,8),wM,0,.34,.10);
+  add(new THREE.SphereGeometry(0.14,10,8),dM,0,.62,0);
+  add(new THREE.SphereGeometry(.025,6,5),wM,-.055,.68,.10);
+  add(new THREE.SphereGeometry(.025,6,5),wM, .055,.68,.10);
+  add(new THREE.SphereGeometry(.015,6,5),dM,-.055,.68,.118);
+  add(new THREE.SphereGeometry(.015,6,5),dM, .055,.68,.118);
+  add(new THREE.ConeGeometry(.03,.08,6),oM,0,.64,.14,Math.PI/2,0,0);
+  add(new THREE.TorusGeometry(.135,.02,6,16),bM,0,.55,0,Math.PI/2,0,0);
+  add(new THREE.BoxGeometry(.07,.02,.12),oM,-.08,.02,.04);
+  add(new THREE.BoxGeometry(.07,.02,.12),oM, .08,.02,.04);
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  BIRTHDAY TABLE & FOOD
-//  [PERF] Strategy B: all procedural geometry (BoxGeometry,
-//  CylinderGeometry, SphereGeometry) — zero external files.
-//  [PERF] Shared material instances for same-colour items.
-//  [PERF] Low segment counts (8–12) throughout.
+//  [G] BIRTHDAY TABLE  [PERF] procedural geometry only
 // ─────────────────────────────────────────────────────────────────
 function buildBirthdayTable() {
-  const TX = 0, TZ = -6;   // table centre — in the gallery midpoint
-
-  // ── Wood table (MMJ style — warm oak with green stripe) ──
-  const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5e2e, roughness: 0.7 });
-  const legMat  = new THREE.MeshStandardMaterial({ color: 0x6b4520, roughness: 0.8 });
-  const greenStripe = new THREE.MeshStandardMaterial({
-    color: C_GREEN, roughness: 0.4,
-    emissive: new THREE.Color(C_GREEN), emissiveIntensity: 0.12,
-  });
+  const TX=0, TZ=-6;
+  const woodMat = new THREE.MeshStandardMaterial({color:0x8b5e2e,roughness:0.7});
+  const legMat  = new THREE.MeshStandardMaterial({color:0x6b4520,roughness:0.8});
+  const strMat  = new THREE.MeshStandardMaterial({color:C_GREEN,roughness:0.4,emissive:new THREE.Color(C_GREEN),emissiveIntensity:0.12});
 
   // Table top
-  const top = new THREE.Mesh(new THREE.BoxGeometry(5.0, 0.12, 1.6), woodMat);
-  top.position.set(TX, 1.0, TZ); top.castShadow = true; top.receiveShadow = true;
+  const top = new THREE.Mesh(new THREE.BoxGeometry(5.0,0.12,1.6), woodMat);
+  top.position.set(TX,1.0,TZ); top.castShadow=true; top.receiveShadow=true;
   scene.add(top);
-  // Green MMJ stripe along edge
-  const stripe = new THREE.Mesh(new THREE.BoxGeometry(5.02, 0.04, 0.04), greenStripe);
-  stripe.position.set(TX, 1.06, TZ - 0.82); scene.add(stripe);
-  // Table legs  [PERF] shared geometry
-  const legGeo = new THREE.BoxGeometry(0.1, 1.0, 0.1);
-  [[-2.3,-0.7],[-2.3,0.7],[2.3,-0.7],[2.3,0.7]].forEach(([lx,lz]) => {
-    const leg = new THREE.Mesh(legGeo, legMat);
-    leg.position.set(TX+lx, 0.5, TZ+lz); leg.castShadow = true; scene.add(leg);
+
+  // MMJ green stripe
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(5.02,0.04,0.04),strMat);
+  stripe.position.set(TX,1.06,TZ-0.82); scene.add(stripe);
+
+  // Legs  [PERF] shared geometry
+  const legGeo = new THREE.BoxGeometry(0.1,1.0,0.1);
+  [[-2.3,-0.7],[-2.3,0.7],[2.3,-0.7],[2.3,0.7]].forEach(([lx,lz])=>{
+    const l=new THREE.Mesh(legGeo,legMat); l.position.set(TX+lx,0.5,TZ+lz); l.castShadow=true; scene.add(l);
   });
 
-  // ── Birthday cake (centrepiece) ──
-  buildCake(TX, 1.06, TZ);
+  // [D] Register table as collider
+  const tableBox = new THREE.Box3().setFromObject(top);
+  tableBox.expandByScalar(0.2);   // small margin
+  state.colliders.push(tableBox);
 
-  // ── Food items (left side) ──
-  buildCupcake(TX - 1.5, 1.06, TZ - 0.3);
-  buildCupcake(TX - 1.5, 1.06, TZ + 0.3);
-  buildMacaroon(TX - 2.0, 1.06, TZ - 0.2, 0xff88aa); // pink
-  buildMacaroon(TX - 2.0, 1.06, TZ + 0.2, 0x88dd44); // green
+  // Food
+  buildCake(TX,1.06,TZ);
+  buildCupcake(TX-1.5,1.06,TZ-0.3); buildCupcake(TX-1.5,1.06,TZ+0.3);
+  buildMacaroon(TX-2.0,1.06,TZ-0.2,0xff88aa); buildMacaroon(TX-2.0,1.06,TZ+0.2,C_GREEN);
+  buildCupcake(TX+1.5,1.06,TZ-0.3); buildCupcake(TX+1.5,1.06,TZ+0.3);
+  buildMacaroon(TX+2.0,1.06,TZ-0.2,C_BLUE);   buildMacaroon(TX+2.0,1.06,TZ+0.2,0xffdd88);
+  buildGiftBox(TX-2.2,1.06,TZ,C_GREEN,0xffffff);
+  buildGiftBox(TX+2.2,1.06,TZ,C_BLUE, 0xffffff);
 
-  // ── Food items (right side) ──
-  buildCupcake(TX + 1.5, 1.06, TZ - 0.3);
-  buildCupcake(TX + 1.5, 1.06, TZ + 0.3);
-  buildMacaroon(TX + 2.0, 1.06, TZ - 0.2, 0x99ccff); // blue
-  buildMacaroon(TX + 2.0, 1.06, TZ + 0.2, 0xffdd88); // yellow
-
-  // ── Small gift boxes at corners ──
-  buildGiftBox(TX - 2.2, 1.06, TZ, 0x88dd44, 0xffffff);
-  buildGiftBox(TX + 2.2, 1.06, TZ, 0x99ccff, 0xffffff);
-
-  // ── Decorative balloons above table ──
-  buildBalloon(TX - 1.8, 2.8, TZ - 0.4, 0x88dd44);
-  buildBalloon(TX,       3.2, TZ - 0.5, 0xff88aa);
-  buildBalloon(TX + 1.8, 2.8, TZ - 0.4, 0x99ccff);
-  buildBalloon(TX - 0.9, 3.0, TZ + 0.3, 0xffdd44);
-  buildBalloon(TX + 0.9, 3.0, TZ + 0.3, 0xdd88ff);
+  // Balloons above table
+  buildBalloon(TX-1.8,2.8,TZ-0.4,C_GREEN);
+  buildBalloon(TX,    3.2,TZ-0.5,0xff88aa);
+  buildBalloon(TX+1.8,2.8,TZ-0.4,C_BLUE);
+  buildBalloon(TX-0.9,3.0,TZ+0.3,0xffdd44);
+  buildBalloon(TX+0.9,3.0,TZ+0.3,0xdd88ff);
 }
 
-function buildCake(x, y, z) {
-  // [PERF] Low-poly cylinder for each tier (12 segments)
-  const bot = new THREE.MeshStandardMaterial({ color: 0xfff0f5, roughness: 0.8 });  // white frosting
-  const mid = new THREE.MeshStandardMaterial({ color: 0xffe4e8, roughness: 0.8 });  // pink
-  const top = new THREE.MeshStandardMaterial({ color: 0xd4f5b0, roughness: 0.8 });  // green (MMJ)
-
-  // Bottom tier
-  const t1 = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.40, 0.28, 12), bot);
-  t1.position.set(x, y+0.14, z); t1.castShadow = true; scene.add(t1);
-  // Middle tier
-  const t2 = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.30, 0.24, 12), mid);
-  t2.position.set(x, y+0.38, z); t2.castShadow = true; scene.add(t2);
-  // Top tier
-  const t3 = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.20, 0.20, 12), top);
-  t3.position.set(x, y+0.58, z); t3.castShadow = true; scene.add(t3);
-
-  // Green ribbon bands (MMJ colour)
-  const ribbonMat = new THREE.MeshStandardMaterial({ color: C_GREEN, roughness: 0.3, emissive: new THREE.Color(C_GREEN), emissiveIntensity: 0.1 });
-  const r1 = new THREE.Mesh(new THREE.CylinderGeometry(0.402,0.402,0.04,12), ribbonMat);
-  r1.position.set(x, y+0.14, z); scene.add(r1);
-  const r2 = new THREE.Mesh(new THREE.CylinderGeometry(0.302,0.302,0.04,12), ribbonMat);
-  r2.position.set(x, y+0.38, z); scene.add(r2);
-
-  // Candles (store refs for flicker)
-  const candleMat  = new THREE.MeshStandardMaterial({ color: 0xffeeaa, roughness: 0.6 });
-  const flameMat   = new THREE.MeshStandardMaterial({ color: 0xff6600, emissive: new THREE.Color(0xff6600), emissiveIntensity: 1.5, roughness: 0.3 });
-  state.cakeCandles = [];
-  [[-0.08,0.08],[0.08,0.08],[0,-0.06]].forEach(([cx,cz], i) => {
-    const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.16,6), candleMat);
-    candle.position.set(x+cx, y+0.76, z+cz); scene.add(candle);
-    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.022,0.06,6), flameMat);
-    flame.position.set(x+cx, y+0.87, z+cz); scene.add(flame);
-    state.cakeCandles.push(flame);
+function buildCake(x,y,z) {
+  const tiers = [
+    {r:0.38,h:0.28,c:0xfff0f5,y:0.14},
+    {r:0.28,h:0.24,c:0xffe4e8,y:0.38},
+    {r:0.18,h:0.20,c:0xd4f5b0,y:0.58},
+  ];
+  const rib = new THREE.MeshStandardMaterial({color:C_GREEN,roughness:0.3,emissive:new THREE.Color(C_GREEN),emissiveIntensity:0.1});
+  tiers.forEach(({r,h,c,y:ty})=>{
+    const m=new THREE.Mesh(new THREE.CylinderGeometry(r-0.02,r,h,12),
+      new THREE.MeshStandardMaterial({color:c,roughness:0.8}));
+    m.position.set(x,y+ty,z); m.castShadow=true; scene.add(m);
+    const rb=new THREE.Mesh(new THREE.CylinderGeometry(r+0.002,r+0.002,0.04,12),rib);
+    rb.position.set(x,y+ty,z); scene.add(rb);
   });
-
-  // Star topper on top tier
-  buildStarTopper(x, y+0.72, z);
+  // Candles
+  const cMat=new THREE.MeshStandardMaterial({color:0xffeeaa,roughness:0.6});
+  const fMat=new THREE.MeshStandardMaterial({color:0xff6600,emissive:new THREE.Color(0xff6600),emissiveIntensity:1.5});
+  state.cakeCandles=[];
+  [[-0.08,0.08],[0.08,0.08],[0,-0.06]].forEach(([cx,cz],i)=>{
+    const c=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,.16,6),cMat);
+    c.position.set(x+cx,y+0.76,z+cz); scene.add(c);
+    const f=new THREE.Mesh(new THREE.ConeGeometry(.022,.06,6),fMat);
+    f.position.set(x+cx,y+0.87,z+cz); scene.add(f);
+    state.cakeCandles.push(f);
+  });
 }
 
-function buildStarTopper(x, y, z) {
-  // Simple gold star using a cone
-  const starMat = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.2, metalness: 0.8, emissive: new THREE.Color(0xffd700), emissiveIntensity: 0.3 });
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2;
-    const petal = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 4), starMat);
-    petal.position.set(x + Math.sin(a)*0.06, y+0.08, z + Math.cos(a)*0.06);
-    petal.rotation.z = a; scene.add(petal);
-  }
+function buildCupcake(x,y,z) {
+  const cases =[0xcc8844,0x88bb44,0xcc6688];
+  const frosts=[0xffddee,0xd4f5b0,0xfff5cc];
+  const ri=Math.floor(Math.random()*cases.length);
+  const cM=new THREE.MeshStandardMaterial({color:cases[ri],roughness:0.7});
+  const fM=new THREE.MeshStandardMaterial({color:frosts[ri],roughness:0.6});
+  const b=new THREE.Mesh(new THREE.CylinderGeometry(.09,.07,.12,8),cM);
+  b.position.set(x,y+.06,z); b.castShadow=true; scene.add(b);
+  const f=new THREE.Mesh(new THREE.SphereGeometry(.09,8,6,0,Math.PI*2,0,Math.PI/2),fM);
+  f.position.set(x,y+.135,z); scene.add(f);
 }
 
-function buildCupcake(x, y, z) {
-  // [PERF] Shared geometries reused across all cupcake calls
-  const caseColors = [0xcc8844, 0x88bb44, 0xcc6688];
-  const frostColors = [0xffddee, 0xd4f5b0, 0xfff5cc];
-  const pick = (arr) => arr[Math.floor(Math.random()*arr.length)];
-  const caseMat  = new THREE.MeshStandardMaterial({ color: pick(caseColors), roughness: 0.7 });
-  const frostMat = new THREE.MeshStandardMaterial({ color: pick(frostColors), roughness: 0.6 });
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.07, 0.12, 8), caseMat);
-  base.position.set(x, y+0.06, z); base.castShadow=true; scene.add(base);
-  const frost = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6, 0, Math.PI*2, 0, Math.PI/2), frostMat);
-  frost.position.set(x, y+0.135, z); scene.add(frost);
+function buildMacaroon(x,y,z,color) {
+  const mat=new THREE.MeshStandardMaterial({color,roughness:0.5});
+  const t=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,.045,8),mat); t.position.set(x,y+.045,z); scene.add(t);
+  const b=t.clone(); b.position.set(x,y+.005,z); scene.add(b);
+  const cr=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,.018,8),new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.6}));
+  cr.position.set(x,y+.026,z); scene.add(cr);
 }
 
-function buildMacaroon(x, y, z, color) {
-  // [PERF] 8 segments only
-  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.045, 8), mat);
-  top.position.set(x, y+0.045, z); scene.add(top);
-  const bot = top.clone(); bot.position.set(x, y+0.005, z); scene.add(bot);
-  const fill = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
-  const cream = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.018, 8), fill);
-  cream.position.set(x, y+0.026, z); scene.add(cream);
+function buildGiftBox(x,y,z,boxColor,ribColor) {
+  const bM=new THREE.MeshStandardMaterial({color:boxColor,roughness:0.6});
+  const rM=new THREE.MeshStandardMaterial({color:ribColor,roughness:0.3});
+  const bx=new THREE.Mesh(new THREE.BoxGeometry(.22,.22,.22),bM);
+  bx.position.set(x,y+.11,z); bx.castShadow=true; scene.add(bx);
+  const rx=new THREE.Mesh(new THREE.BoxGeometry(.24,.03,.03),rM); rx.position.set(x,y+.22,z); scene.add(rx);
+  const rz=new THREE.Mesh(new THREE.BoxGeometry(.03,.03,.24),rM); rz.position.set(x,y+.22,z); scene.add(rz);
 }
 
-function buildGiftBox(x, y, z, boxColor, ribbonColor) {
-  // [PERF] BoxGeometry = 1 draw call per box
-  const boxMat    = new THREE.MeshStandardMaterial({ color: boxColor, roughness: 0.6 });
-  const ribbonMat = new THREE.MeshStandardMaterial({ color: ribbonColor, roughness: 0.3, metalness: 0.1 });
-  const box = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.22,0.22), boxMat);
-  box.position.set(x, y+0.11, z); box.castShadow=true; scene.add(box);
-  // Ribbon strips (2 thin boxes)
-  const rx = new THREE.Mesh(new THREE.BoxGeometry(0.24,0.03,0.03), ribbonMat);
-  rx.position.set(x, y+0.22, z); scene.add(rx);
-  const rz = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.03,0.24), ribbonMat);
-  rz.position.set(x, y+0.22, z); scene.add(rz);
-  // Bow (two small cones)
-  const bowMat = new THREE.MeshStandardMaterial({ color: ribbonColor, roughness: 0.3 });
-  const b1 = new THREE.Mesh(new THREE.ConeGeometry(0.04,0.06,6), bowMat);
-  b1.position.set(x-0.04, y+0.26, z); b1.rotation.z = 0.5; scene.add(b1);
-  const b2 = b1.clone(); b2.position.set(x+0.04, y+0.26, z); b2.rotation.z = -0.5; scene.add(b2);
-}
-
-function buildBalloon(x, y, z, color) {
-  // [PERF] 10-segment sphere per balloon — very lightweight
-  const mat  = new THREE.MeshStandardMaterial({ color, roughness: 0.3, transparent: true, opacity: 0.88 });
-  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), mat);
-  ball.position.set(x, y, z); scene.add(ball);
-  // String (thin cylinder)
-  const strMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.8 });
-  const str = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.9, 4), strMat);
-  str.position.set(x, y - 0.65, z); scene.add(str);
-  // Store for gentle float animation
-  if (!state.balloons) state.balloons = [];
-  state.balloons.push({ mesh: ball, baseY: y, phase: Math.random() * Math.PI * 2 });
+function buildBalloon(x,y,z,color) {
+  const mat=new THREE.MeshStandardMaterial({color,roughness:0.3,transparent:true,opacity:0.88});
+  const ball=new THREE.Mesh(new THREE.SphereGeometry(.22,10,8),mat);
+  ball.position.set(x,y,z); scene.add(ball);
+  const sM=new THREE.MeshStandardMaterial({color:0xaaaaaa,roughness:0.8});
+  const str=new THREE.Mesh(new THREE.CylinderGeometry(.005,.005,.9,4),sM);
+  str.position.set(x,y-.65,z); scene.add(str);
+  state.balloons.push({mesh:ball,baseY:y,phase:Math.random()*Math.PI*2});
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  ARTWORK FRAMES
+//  [B] ARTWORK FRAMES — auto aspect ratio
 // ─────────────────────────────────────────────────────────────────
 function buildArtworks() {
-  // [FIX 8] TextureLoader must be in this function scope with manager
-  //  so image files are tracked by the LoadingManager
   const texLoader = new THREE.TextureLoader(manager);
 
   ARTWORKS.forEach((art) => {
-    const [aw, ah] = art.size;
-    const group = new THREE.Group();
-    group.position.set(...art.pos);
-    group.rotation.y = art.rotY;
-
-    // Black frame bars
-    const frameT  = 0.045;
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.35, metalness: 0.6 });
-    const barH  = new THREE.Mesh(new THREE.BoxGeometry(aw+frameT*2, frameT, 0.04), frameMat);
-    const barHb = barH.clone();
-    barH.position.y  =  ah/2 + frameT/2;
-    barHb.position.y = -ah/2 - frameT/2;
-    group.add(barH, barHb);
-    const barV  = new THREE.Mesh(new THREE.BoxGeometry(frameT, ah, 0.04), frameMat);
-    const barVr = barV.clone();
-    barV.position.x  = -aw/2 - frameT/2;
-    barVr.position.x =  aw/2 + frameT/2;
-    group.add(barV, barVr);
-
-    // Canvas face
-    // ★ TO ADD A REAL IMAGE: add  tex: 'images/filename.jpg'  to the artwork entry above.
-    let canvasMat;
+    // We defer frame creation until we know actual image size.
+    // For colour-only entries, we build immediately.
     if (art.tex) {
-      // [FIX 8] colorSpace must be set so ACESFilmic renders colours correctly
-      const t = texLoader.load(art.tex, (loadedTex) => {
-        loadedTex.colorSpace = THREE.SRGBColorSpace;
-        canvasMat.needsUpdate = true;  // force re-render after async load
-      });
-      canvasMat = new THREE.MeshStandardMaterial({ map: t, roughness: 0.88 });
+      texLoader.load(
+        art.tex,
+        (tex) => {
+          tex.colorSpace = THREE.SRGBColorSpace;
+          // [B] Compute frame size that fits image ratio within art.size bounds
+          const imgW = tex.image.width, imgH = tex.image.height;
+          const imgRatio = imgW / imgH;
+          const [maxW, maxH] = art.size;
+          let fw, fh;
+          if (imgRatio >= maxW / maxH) {
+            fw = maxW; fh = maxW / imgRatio;
+          } else {
+            fh = maxH; fw = maxH * imgRatio;
+          }
+          buildFrame(art, fw, fh, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.88 }));
+        },
+        undefined,
+        () => {
+          // Image failed to load — fall back to colour
+          buildFrame(art, art.size[0], art.size[1],
+            new THREE.MeshStandardMaterial({ color: art.color, roughness: 0.9 }));
+        }
+      );
     } else {
-      canvasMat = new THREE.MeshStandardMaterial({ color: art.color, roughness: 0.9 });
+      buildFrame(art, art.size[0], art.size[1],
+        new THREE.MeshStandardMaterial({ color: art.color, roughness: 0.9 }));
     }
-    const canvasMesh = new THREE.Mesh(new THREE.PlaneGeometry(aw, ah), canvasMat);
-    canvasMesh.position.z = 0.021;
-    group.add(canvasMesh);
-
-    // Subtle accent overlay
-    const overlayMat = new THREE.MeshStandardMaterial({
-      color: art.accent || 0xffffff, transparent: true, opacity: 0.06, roughness: 1.0,
-    });
-    const overlay = new THREE.Mesh(new THREE.PlaneGeometry(aw*0.6, ah*0.6), overlayMat);
-    overlay.position.set(aw*0.15, -ah*0.15, 0.022);
-    group.add(overlay);
-
-    // Gold nameplate
-    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.12, 0.012), _goldMat);
-    plate.position.set(0, -ah/2-0.22, 0.01);
-    group.add(plate);
-
-    // Wire hanger
-    const wireMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5, metalness: 0.8 });
-    const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.005,0.005,0.18,4), wireMat);
-    wire.position.set(0, ah/2+0.13, -0.02);
-    group.add(wire);
-
-    group.castShadow = true; group.receiveShadow = true;
-    scene.add(group);
-    state.artworkMeshes.push({ group, face: canvasMesh, art });
   });
 }
 
+function buildFrame(art, aw, ah, canvasMat) {
+  const group = new THREE.Group();
+  group.position.set(...art.pos);
+  group.rotation.y = art.rotY;
+
+  // Black thin frame bars
+  const frameT = 0.045;
+  const bH  = new THREE.Mesh(new THREE.BoxGeometry(aw+frameT*2, frameT, 0.04), MAT.frame);
+  const bHb = bH.clone();
+  bH.position.y  =  ah/2+frameT/2;
+  bHb.position.y = -ah/2-frameT/2;
+  group.add(bH, bHb);
+  const bV  = new THREE.Mesh(new THREE.BoxGeometry(frameT, ah, 0.04), MAT.frame);
+  const bVr = bV.clone();
+  bV.position.x  = -aw/2-frameT/2;
+  bVr.position.x =  aw/2+frameT/2;
+  group.add(bV, bVr);
+
+  // Canvas
+  const canvasMesh = new THREE.Mesh(new THREE.PlaneGeometry(aw, ah), canvasMat);
+  canvasMesh.position.z = 0.021;
+  group.add(canvasMesh);
+
+  // Accent overlay
+  if (art.accent) {
+    const ov = new THREE.Mesh(
+      new THREE.PlaneGeometry(aw*0.6, ah*0.6),
+      new THREE.MeshStandardMaterial({ color: art.accent, transparent: true, opacity: 0.05, roughness: 1.0 })
+    );
+    ov.position.set(aw*0.15, -ah*0.15, 0.022);
+    group.add(ov);
+  }
+
+  // [A] Nameplate with real text
+  const plateW = Math.max(aw * 0.75, 1.0);
+  const plateMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(plateW, 0.18, 0.015),
+    new THREE.MeshStandardMaterial({ map: makeNameplateTex(art.title), roughness: 0.3, metalness: 0.5 })
+  );
+  plateMesh.position.set(0, -ah/2-0.26, 0.01);
+  group.add(plateMesh);
+
+  // Wire hanger
+  const wire = new THREE.Mesh(new THREE.CylinderGeometry(.005,.005,.18,4), MAT.wire);
+  wire.position.set(0, ah/2+0.13, -0.02);
+  group.add(wire);
+
+  group.castShadow = true; group.receiveShadow = true;
+  scene.add(group);
+  state.artworkMeshes.push({ group, face: canvasMesh, art });
+}
+
 // ─────────────────────────────────────────────────────────────────
-//  VRM CHARACTER LOADER
+//  VRM LOADER
 // ─────────────────────────────────────────────────────────────────
 function loadCharacter() {
-  /**
-   * ★ MODEL REPLACEMENT — DETAILED NOTES ★
-   *
-   * VRM LOADING FLOW:
-   *   1. GLTFLoader.load(VRM_PATH)
-   *   2. VRMLoaderPlugin extracts gltf.userData.vrm
-   *   3. We search animations for 'idle'/'walk' by name
-   *
-   * [FIX 3] AnimationMixer crossFade properly transitions idle↔walk.
-   *   setEffectiveWeight alone won't remove T-pose on some rigs;
-   *   crossFadeTo() resets the outgoing action cleanly.
-   *
-   * TO SWAP TO PLAIN GLB: remove loader.register(...) and replace
-   *   gltf.userData.vrm block with:
-   *     state.vrm = { scene: gltf.scene, update: ()=>{} };
-   */
   const loader = new GLTFLoader(manager);
   loader.register((parser) => new VRMLoaderPlugin(parser));
 
@@ -762,234 +685,215 @@ function loadCharacter() {
     (gltf) => {
       const vrm = gltf.userData.vrm;
       if (!vrm) {
-        gltf.scene.traverse(c => { if (c.isMesh) { c.castShadow=true; c.receiveShadow=true; } });
+        gltf.scene.traverse(c=>{ if(c.isMesh){c.castShadow=c.receiveShadow=true;} });
         scene.add(gltf.scene);
         state.vrm = { scene: gltf.scene, update: ()=>{} };
-        setupAnimations(gltf);
-        setupVRMPosition();
-        finishLoading();
-        return;
+      } else {
+        VRMUtils.removeUnnecessaryJoints(gltf.scene);
+        vrm.scene.traverse(c=>{ if(c.isMesh){c.castShadow=c.receiveShadow=true;} });
+        state.vrm = vrm;
+        scene.add(vrm.scene);
       }
-      VRMUtils.removeUnnecessaryJoints(gltf.scene);
-      vrm.scene.traverse(c => { if (c.isMesh) { c.castShadow=true; c.receiveShadow=true; } });
-      state.vrm = vrm;
-      scene.add(vrm.scene);
       setupAnimations(gltf);
       setupVRMPosition();
       finishLoading();
     },
     (progress) => {
       if (progress.total > 0) {
-        const pct = Math.round((progress.loaded / progress.total) * 100);
-        loadBar.style.width  = Math.min(pct, 99) + '%';
+        const pct = Math.round(progress.loaded/progress.total*100);
+        loadBar.style.width  = Math.min(pct,99)+'%';
         loadText.textContent = `正在前往畫展... ${pct}%`;
       }
     },
     (err) => {
       console.error('[Gallery] VRM load failed:', err);
-      const dummy = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.25, 0.25, 1.4, 12),
-        new THREE.MeshStandardMaterial({ color: C_GREEN })
-      );
-      dummy.position.copy(state.charPos); dummy.position.y = 0.7;
-      scene.add(dummy);
+      const dummy = new THREE.Mesh(new THREE.CylinderGeometry(.25,.25,1.4,12),
+        new THREE.MeshStandardMaterial({color:C_GREEN}));
+      dummy.position.copy(state.charPos); dummy.position.y=0.7; scene.add(dummy);
       state.vrm = { scene: dummy, update: ()=>{} };
-      setupVRMPosition();
-      finishLoading();
+      setupVRMPosition(); finishLoading();
     }
   );
 }
 
-// [FIX 3] Proper AnimationMixer setup with crossFade support
+// [E] Proper AnimationMixer with crossFade
 function setupAnimations(gltf) {
-  if (!gltf.animations || gltf.animations.length === 0) {
-    console.log('[Gallery] No animations found in model — using position bob only.');
-    return;
-  }
-  const root = state.vrm ? state.vrm.scene : gltf.scene;
+  if (!gltf.animations?.length) { console.log('[Gallery] No animations in VRM.'); return; }
+  const root = state.vrm?.scene ?? gltf.scene;
   state.mixer = new THREE.AnimationMixer(root);
 
-  const find = (kw) => gltf.animations.find(a => a.name.toLowerCase().includes(kw));
+  const find = kw => gltf.animations.find(a => a.name.toLowerCase().includes(kw));
   const idleClip = find('idle') || find('stand') || gltf.animations[0];
   const walkClip = find('walk') || find('run');
 
   if (idleClip) {
     state.idleAction = state.mixer.clipAction(idleClip);
-    // Start in idle, weight=1
     state.idleAction.reset().setEffectiveWeight(1).setEffectiveTimeScale(1).play();
   }
   if (walkClip) {
     state.walkAction = state.mixer.clipAction(walkClip);
-    // Walk ready but silent (weight=0)
     state.walkAction.reset().setEffectiveWeight(0).setEffectiveTimeScale(1).play();
   }
-
-  console.log('[Gallery] Animations ready — idle:', idleClip?.name, '| walk:', walkClip?.name);
+  console.log('[Gallery] idle:', idleClip?.name, '| walk:', walkClip?.name);
 }
 
 function setupVRMPosition() {
   if (!state.vrm) return;
   state.vrm.scene.position.copy(state.charPos);
-  state.vrm.scene.rotation.y = state.charAngle;
+  state.vrm.scene.quaternion.copy(state.charQuat);
 }
 
 // ─────────────────────────────────────────────────────────────────
 //  INPUT
 // ─────────────────────────────────────────────────────────────────
-window.addEventListener('keydown', e => { state.keys[e.code] = true; });
-window.addEventListener('keyup',   e => { state.keys[e.code] = false; });
+window.addEventListener('keydown', e=>{ state.keys[e.code]=true; });
+window.addEventListener('keyup',   e=>{ state.keys[e.code]=false; });
 
-window.addEventListener('mousedown', e => {
-  if (e.button === 0 || e.button === 2) {
-    state.mouseDragging = true; state.mouseHasMoved = false;
-    state.lastMX = e.clientX; state.lastMY = e.clientY;
-  }
+window.addEventListener('mousedown', e=>{
+  if(e.button===0||e.button===2){ state.mouseDragging=true; state.mouseHasMoved=false; state.lastMX=e.clientX; state.lastMY=e.clientY; }
 });
-window.addEventListener('mouseup', () => { state.mouseDragging = false; });
-window.addEventListener('mousemove', e => {
-  if (!state.mouseDragging) return;
-  const dx = e.clientX - state.lastMX, dy = e.clientY - state.lastMY;
-  if (Math.abs(dx) > 4 || Math.abs(dy) > 4) state.mouseHasMoved = true;
-  state.lastMX = e.clientX; state.lastMY = e.clientY;
-  state.camYaw   -= dx * 0.003;
-  state.camPitch  = Math.max(-0.25, Math.min(0.65, state.camPitch + dy * 0.003));
+window.addEventListener('mouseup', ()=>{ state.mouseDragging=false; });
+window.addEventListener('mousemove', e=>{
+  if(!state.mouseDragging) return;
+  const dx=e.clientX-state.lastMX, dy=e.clientY-state.lastMY;
+  if(Math.abs(dx)>4||Math.abs(dy)>4) state.mouseHasMoved=true;
+  state.lastMX=e.clientX; state.lastMY=e.clientY;
+  state.camYaw  -= dx*0.003;
+  state.camPitch = Math.max(-0.25,Math.min(0.65,state.camPitch+dy*0.003));
 });
-
-window.addEventListener('touchstart', e => {
-  if (e.touches.length === 1) {
-    state.mouseDragging=true; state.mouseHasMoved=false;
-    state.lastMX=e.touches[0].clientX; state.lastMY=e.touches[0].clientY;
-  }
-}, { passive: true });
-window.addEventListener('touchend', () => { state.mouseDragging = false; });
-window.addEventListener('touchmove', e => {
-  if (!state.mouseDragging || e.touches.length !== 1) return;
-  const dx = e.touches[0].clientX-state.lastMX, dy = e.touches[0].clientY-state.lastMY;
-  if (Math.abs(dx)>4||Math.abs(dy)>4) state.mouseHasMoved=true;
+window.addEventListener('touchstart',e=>{ if(e.touches.length===1){state.mouseDragging=true;state.mouseHasMoved=false;state.lastMX=e.touches[0].clientX;state.lastMY=e.touches[0].clientY;} },{passive:true});
+window.addEventListener('touchend',  ()=>{ state.mouseDragging=false; });
+window.addEventListener('touchmove', e=>{
+  if(!state.mouseDragging||e.touches.length!==1) return;
+  const dx=e.touches[0].clientX-state.lastMX, dy=e.touches[0].clientY-state.lastMY;
+  if(Math.abs(dx)>4||Math.abs(dy)>4) state.mouseHasMoved=true;
   state.lastMX=e.touches[0].clientX; state.lastMY=e.touches[0].clientY;
-  state.camYaw   -= dx * 0.004;
-  state.camPitch  = Math.max(-0.25, Math.min(0.65, state.camPitch + dy * 0.004));
-}, { passive: true });
+  state.camYaw  -= dx*0.004;
+  state.camPitch = Math.max(-0.25,Math.min(0.65,state.camPitch+dy*0.004));
+},{passive:true});
 
-// Click → artwork panel (suppressed after drag)
 const raycaster = new THREE.Raycaster();
 const pointer   = new THREE.Vector2();
-window.addEventListener('click', e => {
-  if (state.mouseHasMoved) return;
-  pointer.x =  (e.clientX / window.innerWidth)  * 2 - 1;
-  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+window.addEventListener('click', e=>{
+  if(state.mouseHasMoved) return;
+  pointer.x= (e.clientX/window.innerWidth )*2-1;
+  pointer.y=-(e.clientY/window.innerHeight)*2+1;
   raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(state.artworkMeshes.map(a => a.face), false);
-  if (hits.length > 0) {
-    const found = state.artworkMeshes.find(a => a.face === hits[0].object);
-    if (found) openArtworkPanel(found);
-  }
+  const hits = raycaster.intersectObjects(state.artworkMeshes.map(a=>a.face),false);
+  if(hits.length>0){ const found=state.artworkMeshes.find(a=>a.face===hits[0].object); if(found) openArtworkPanel(found); }
 });
-
 panelClose.addEventListener('click', closeArtworkPanel);
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+window.addEventListener('resize', ()=>{
+  camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
 });
 
 // ─────────────────────────────────────────────────────────────────
 //  ARTWORK PANEL
 // ─────────────────────────────────────────────────────────────────
 function openArtworkPanel(found) {
-  const { art, group } = found;
-  panelTitle.textContent = art.title;
-  panelDesc.textContent  = art.desc;
-  panelMeta.textContent  = art.meta;
+  panelTitle.textContent = found.art.title;
+  panelDesc.textContent  = found.art.desc;
+  panelMeta.textContent  = found.art.meta;
   panel.classList.remove('hidden');
-
-  const worldPos = new THREE.Vector3();
-  group.getWorldPosition(worldPos);
-  const fwd = new THREE.Vector3(Math.sin(group.rotation.y), 0, Math.cos(group.rotation.y))
-    .multiplyScalar(2.6);
-
+  const wp = new THREE.Vector3();
+  found.group.getWorldPosition(wp);
+  const fwd = new THREE.Vector3(Math.sin(found.group.rotation.y),0,Math.cos(found.group.rotation.y)).multiplyScalar(2.6);
   state.camFocusOrigin = camera.position.clone();
-  state.camFocusTarget = worldPos.clone().add(new THREE.Vector3(fwd.x, 0.2, fwd.z));
-  // [FIX 9] Reset lerp so camera actually moves; panel stays open independently
+  state.camFocusTarget = wp.clone().add(new THREE.Vector3(fwd.x,0.2,fwd.z));
   state.camLerpT       = 0;
   state.focusedArtwork = found;
 }
-
 function closeArtworkPanel() {
   panel.classList.add('hidden');
-  state.focusedArtwork = null;
-  state.camFocusTarget = null;
-  state.camLerpT       = 1;
+  state.focusedArtwork=null; state.camFocusTarget=null; state.camLerpT=1;
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  CHARACTER MOVEMENT
-//  [FIX 5] Direction is camera-relative: W always = forward in view
-//  [FIX 6] Character rotation follows actual world-space move dir
-//  [FIX 7] Wall collision via AABB clamp (simple & zero-cost)
+//  CHARACTER UPDATE  [C][D][E][F]
 // ─────────────────────────────────────────────────────────────────
-const SPEED  = 4.2;
-const HALF_W = ROOM_W / 2 - 0.6;
-const HALF_D = ROOM_D / 2 - 0.6;
-const FADE_T = 0.18;   // crossFade duration in seconds
+const SPEED  = 4.0;
+const HALF_W = ROOM_W/2 - 0.6;
+const HALF_D = ROOM_D/2 - 0.6;
+const CHAR_R = 0.3;   // character bounding radius for Box3 colliders
+const FADE_T = 0.18;
+const _tmpQuat = new THREE.Quaternion();
 
 function updateCharacter(dt) {
   if (!state.vrm) return;
 
-  const moveDir = new THREE.Vector3();
-  if (state.keys['KeyW'] || state.keys['ArrowUp'])    moveDir.z -= 1;
-  if (state.keys['KeyS'] || state.keys['ArrowDown'])  moveDir.z += 1;
-  if (state.keys['KeyA'] || state.keys['ArrowLeft'])  moveDir.x -= 1;
-  if (state.keys['KeyD'] || state.keys['ArrowRight']) moveDir.x += 1;
+  const mv = new THREE.Vector3();
+  if (state.keys['KeyW']||state.keys['ArrowUp'])    mv.z -= 1;
+  if (state.keys['KeyS']||state.keys['ArrowDown'])  mv.z += 1;
+  if (state.keys['KeyA']||state.keys['ArrowLeft'])  mv.x -= 1;
+  if (state.keys['KeyD']||state.keys['ArrowRight']) mv.x += 1;
 
-  const moving = moveDir.lengthSq() > 0;
+  const moving = mv.lengthSq() > 0;
 
   if (moving) {
-    moveDir.normalize();
-    // [FIX 5] Rotate input by camYaw so W = camera-forward
-    const sin = Math.sin(state.camYaw), cos = Math.cos(state.camYaw);
-    const worldDir = new THREE.Vector3(
-      moveDir.x * cos - moveDir.z * sin,
-      0,
-      moveDir.x * sin + moveDir.z * cos
+    mv.normalize();
+    // [F] Camera-relative direction
+    const sin=Math.sin(state.camYaw), cos=Math.cos(state.camYaw);
+    const worldDir = new THREE.Vector3(mv.x*cos - mv.z*sin, 0, mv.x*sin + mv.z*cos);
+
+    const next = state.charPos.clone().addScaledVector(worldDir, SPEED*dt);
+
+    // [D] Wall AABB clamp
+    next.x = Math.max(-HALF_W, Math.min(HALF_W, next.x));
+    next.z = Math.max(-HALF_D, Math.min(HALF_D, next.z));
+
+    // [D] Box3 collider check — try sliding if blocked
+    const charAABB = new THREE.Box3(
+      new THREE.Vector3(next.x-CHAR_R, 0, next.z-CHAR_R),
+      new THREE.Vector3(next.x+CHAR_R, 2, next.z+CHAR_R)
     );
+    let blocked = false;
+    for (const col of state.colliders) {
+      if (charAABB.intersectsBox(col)) { blocked = true; break; }
+    }
+    if (!blocked) {
+      state.charPos.copy(next);
+    } else {
+      // Try sliding on X only
+      const slideX = state.charPos.clone();
+      slideX.x = Math.max(-HALF_W, Math.min(HALF_W, state.charPos.x + worldDir.x * SPEED * dt));
+      const aabbX = new THREE.Box3(
+        new THREE.Vector3(slideX.x-CHAR_R,0,slideX.z-CHAR_R),
+        new THREE.Vector3(slideX.x+CHAR_R,2,slideX.z+CHAR_R)
+      );
+      let bX=false; for(const c of state.colliders) if(aabbX.intersectsBox(c)){bX=true;break;}
+      if (!bX) { state.charPos.x = slideX.x; }
 
-    state.charPos.addScaledVector(worldDir, SPEED * dt);
-    // [FIX 7] AABB wall clamp
-    state.charPos.x = Math.max(-HALF_W, Math.min(HALF_W, state.charPos.x));
-    state.charPos.z = Math.max(-HALF_D, Math.min(HALF_D, state.charPos.z));
+      // Try sliding on Z only
+      const slideZ = state.charPos.clone();
+      slideZ.z = Math.max(-HALF_D, Math.min(HALF_D, state.charPos.z + worldDir.z * SPEED * dt));
+      const aabbZ = new THREE.Box3(
+        new THREE.Vector3(slideZ.x-CHAR_R,0,slideZ.z-CHAR_R),
+        new THREE.Vector3(slideZ.x+CHAR_R,2,slideZ.z+CHAR_R)
+      );
+      let bZ=false; for(const c of state.colliders) if(aabbZ.intersectsBox(c)){bZ=true;break;}
+      if (!bZ) { state.charPos.z = slideZ.z; }
+    }
 
-    // [FIX 6] Smooth turn toward movement direction
+    // [C] Quaternion slerp for smooth rotation
     const targetAngle = Math.atan2(worldDir.x, worldDir.z);
-    let da = targetAngle - state.charAngle;
-    while (da >  Math.PI) da -= Math.PI * 2;
-    while (da < -Math.PI) da += Math.PI * 2;
-    state.charAngle += da * Math.min(1, 12 * dt);
+    _tmpQuat.setFromAxisAngle(new THREE.Vector3(0,1,0), targetAngle);
+    state.charQuat.slerp(_tmpQuat, Math.min(1, 12 * dt));
   }
 
+  // Apply transform
   state.vrm.scene.position.x = state.charPos.x;
   state.vrm.scene.position.z = state.charPos.z;
-  // Gentle idle bob (tiny, barely noticeable)
-  state.vrm.scene.position.y = state.charPos.y + Math.sin(clock.elapsedTime * 1.8) * 0.002;
-  state.vrm.scene.rotation.y = state.charAngle;
+  state.vrm.scene.position.y = state.charPos.y + Math.sin(clock.elapsedTime*1.8)*0.002;
+  state.vrm.scene.quaternion.copy(state.charQuat);
 
-  // [FIX 3] Animation crossFade: only transition on state change
+  // [E] Animation crossFade — only on state change
   if (state.mixer && moving !== state.isWalking) {
     state.isWalking = moving;
-    if (moving) {
-      // idle → walk
-      if (state.walkAction && state.idleAction) {
-        state.idleAction.crossFadeTo(state.walkAction, FADE_T, true);
-      } else if (state.walkAction) {
-        state.walkAction.setEffectiveWeight(1);
-      }
-    } else {
-      // walk → idle
-      if (state.idleAction && state.walkAction) {
-        state.walkAction.crossFadeTo(state.idleAction, FADE_T, true);
-      } else if (state.idleAction) {
-        state.idleAction.setEffectiveWeight(1);
-      }
+    if (moving && state.idleAction && state.walkAction) {
+      state.idleAction.crossFadeTo(state.walkAction, FADE_T, true);
+    } else if (!moving && state.walkAction && state.idleAction) {
+      state.walkAction.crossFadeTo(state.idleAction, FADE_T, true);
     }
   }
 
@@ -997,39 +901,35 @@ function updateCharacter(dt) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  THIRD-PERSON CAMERA
+//  CAMERA
 // ─────────────────────────────────────────────────────────────────
-function easeInOut(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+function easeInOut(t) { return t<.5?2*t*t:-1+(4-2*t)*t; }
 
 function updateCamera(dt) {
-  // Artwork focus lerp
   if (state.camFocusTarget && state.camLerpT < 1) {
-    state.camLerpT = Math.min(1, state.camLerpT + dt * 1.4);
+    state.camLerpT = Math.min(1, state.camLerpT + dt*1.4);
     camera.position.lerpVectors(state.camFocusOrigin, state.camFocusTarget, easeInOut(state.camLerpT));
-    const wp = new THREE.Vector3();
+    const wp=new THREE.Vector3();
     state.focusedArtwork?.group.getWorldPosition(wp);
     camera.lookAt(wp.x, wp.y, wp.z);
     return;
   }
-  // If panel open and lerp done, hold camera still
   if (state.focusedArtwork) return;
 
-  // Standard third-person
-  const d  = state.camDist;
-  const px = state.charPos.x + d * Math.sin(state.camYaw)  * Math.cos(state.camPitch);
-  const py = state.charPos.y + 1.5 + d * Math.sin(state.camPitch);
-  const pz = state.charPos.z + d * Math.cos(state.camYaw)  * Math.cos(state.camPitch);
+  const d=state.camDist;
+  const px=state.charPos.x + d*Math.sin(state.camYaw)*Math.cos(state.camPitch);
+  const py=state.charPos.y + 1.5 + d*Math.sin(state.camPitch);
+  const pz=state.charPos.z + d*Math.cos(state.camYaw)*Math.cos(state.camPitch);
 
-  const cx = Math.max(-HALF_W+0.2, Math.min(HALF_W-0.2, px));
-  const cz = Math.max(-HALF_D+0.2, Math.min(HALF_D-0.2, pz));
+  camera.position.lerp(new THREE.Vector3(
+    Math.max(-HALF_W+.2,Math.min(HALF_W-.2,px)),
+    Math.max(.5,py),
+    Math.max(-HALF_D+.2,Math.min(HALF_D-.2,pz))
+  ), 0.12);
+  camera.lookAt(state.charPos.x, state.charPos.y+1.2, state.charPos.z);
 
-  camera.position.lerp(new THREE.Vector3(cx, Math.max(0.5, py), cz), 0.12);
-  camera.lookAt(state.charPos.x, state.charPos.y + 1.2, state.charPos.z);
-
-  if (state.needle) {
-    state.needle.setAttribute('transform',
-      `rotate(${(-state.camYaw * 180 / Math.PI).toFixed(1)}, 18, 18)`);
-  }
+  if(state.needle) state.needle.setAttribute('transform',
+    `rotate(${(-state.camYaw*180/Math.PI).toFixed(1)},18,18)`);
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1040,26 +940,16 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const t  = clock.elapsedTime;
 
-  // Mixer update
   if (state.mixer) state.mixer.update(dt);
 
-  // Candle flicker  [PERF] cheap sin — no texture needed
-  if (state.candleLight) {
-    state.candleLight.intensity = 1.0 + Math.sin(t * 13.7) * 0.25 + Math.sin(t * 7.3) * 0.15;
-  }
-  // Candle flame scale
-  if (state.cakeCandles) {
-    state.cakeCandles.forEach((f, i) => {
-      f.scale.y = 0.9 + Math.sin(t * 11 + i * 2.1) * 0.15;
-      f.scale.x = 0.9 + Math.sin(t * 8  + i * 1.4) * 0.1;
-    });
-  }
-  // Balloon gentle float
-  if (state.balloons) {
-    state.balloons.forEach(b => {
-      b.mesh.position.y = b.baseY + Math.sin(t * 0.8 + b.phase) * 0.06;
-    });
-  }
+  // Candle flicker
+  if (state.candleLight)
+    state.candleLight.intensity = 1.0+Math.sin(t*13.7)*.25+Math.sin(t*7.3)*.15;
+  state.cakeCandles.forEach((f,i)=>{
+    f.scale.y = 0.9+Math.sin(t*11+i*2.1)*.15;
+    f.scale.x = 0.9+Math.sin(t*8+i*1.4)*.10;
+  });
+  state.balloons.forEach(b=>{ b.mesh.position.y = b.baseY+Math.sin(t*.8+b.phase)*.06; });
 
   updateCharacter(dt);
   updateCamera(dt);
@@ -1077,5 +967,4 @@ function init() {
   loadCharacter();
   animate();
 }
-
 init();
