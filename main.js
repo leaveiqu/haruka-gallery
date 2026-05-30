@@ -961,14 +961,14 @@ function updateCharacter(dt) {
         const swing = Math.sin(t * 7) * 0.45;   // walking frequency
         const bob   = Math.abs(Math.sin(t * 7)) * 0.025;
 
-        // Left arm: bring down (z → -1.2) + swing forward/back (x)
+        // Left arm: rotation.z = +1.2 brings arm DOWN in VRM coordinate space
         if (bone('leftUpperArm')) {
-          bone('leftUpperArm').rotation.z = -1.2;          // arm down
-          bone('leftUpperArm').rotation.x =  swing * 0.7;  // forward swing
+          bone('leftUpperArm').rotation.z =  1.2;
+          bone('leftUpperArm').rotation.x =  swing * 0.7;
         }
-        // Right arm: opposite swing
+        // Right arm: rotation.z = -1.2 brings arm DOWN
         if (bone('rightUpperArm')) {
-          bone('rightUpperArm').rotation.z =  1.2;
+          bone('rightUpperArm').rotation.z = -1.2;
           bone('rightUpperArm').rotation.x = -swing * 0.7;
         }
         // Lower arms: slight natural bend
@@ -989,11 +989,11 @@ function updateCharacter(dt) {
         const breathe = Math.sin(t * 1.4) * 0.006;
 
         if (bone('leftUpperArm')) {
-          bone('leftUpperArm').rotation.z = -1.2 + breathe * 0.5; // arm down, slight sway
+          bone('leftUpperArm').rotation.z =  1.2 + breathe * 0.5;
           bone('leftUpperArm').rotation.x = 0;
         }
         if (bone('rightUpperArm')) {
-          bone('rightUpperArm').rotation.z =  1.2 - breathe * 0.5;
+          bone('rightUpperArm').rotation.z = -1.2 - breathe * 0.5;
           bone('rightUpperArm').rotation.x = 0;
         }
         if (bone('leftLowerArm'))  bone('leftLowerArm').rotation.y  =  0.2;
