@@ -970,9 +970,9 @@ function updateCharacter(dt) {
       const FINGER_NAMES = ['Index', 'Middle', 'Ring', 'Little'];
       const FINGER_JOINTS = ['Proximal', 'Intermediate', 'Distal'];
       // 各關節彎曲角度：近端稍彎、中端多彎、末端最彎，呈自然蜷縮
-      const FINGER_CURL = { Proximal: 0.18, Intermediate: 0.28, Distal: 0.22 };
+      const FINGER_CURL = { Proximal: -0.35, Intermediate: -0.45, Distal: -0.3 };
       // 拇指單獨設定（拇指彎曲方向不同）
-      const THUMB_CURL  = { Proximal: 0.20, Intermediate: 0.18, Distal: 0.12 };
+      const THUMB_CURL  = { Proximal: -0.25, Intermediate: -0.3, Distal: -0.2 };
 
       const applyFingerCurl = () => {
         ['left', 'right'].forEach(side => {
@@ -989,7 +989,7 @@ function updateCharacter(dt) {
             if (b) {
               b.rotation.x = THUMB_CURL[joint];
               // 拇指向掌心收攏（z 軸）
-              if (joint === 'Proximal') b.rotation.z = (side === 'left') ? -0.3 : 0.3;
+              if (joint === 'Proximal') b.rotation.z = (side === 'left') ? 0.35 : -0.35;
             }
           });
         });
@@ -1006,17 +1006,17 @@ function updateCharacter(dt) {
 
         // 【左上臂】放下（z=+1.2）並前後擺動（x）
         if (bone('leftUpperArm')) {
-          bone('leftUpperArm').rotation.z =  1.15;
+          bone('leftUpperArm').rotation.z =  0.95;
           bone('leftUpperArm').rotation.x =  swing * 0.85;
         }
         // 【右上臂】放下（z=-1.2）並反向擺動
         if (bone('rightUpperArm')) {
-          bone('rightUpperArm').rotation.z = -1.15;
+          bone('rightUpperArm').rotation.z = -0.95;
           bone('rightUpperArm').rotation.x = -swing * 0.85;
         }
         // 【下臂】走路時輕微彎曲，更自然
-        if (bone('leftLowerArm'))  bone('leftLowerArm').rotation.y  =  0.25;
-        if (bone('rightLowerArm')) bone('rightLowerArm').rotation.y = -0.25;
+        if (bone('leftLowerArm'))  bone('leftLowerArm').rotation.x  = -0.4;
+        if (bone('rightLowerArm')) bone('rightLowerArm').rotation.x = -0.4;
 
         // 【大腿】前後交替擺動
         if (bone('leftUpperLeg'))  bone('leftUpperLeg').rotation.x  = -swing * 0.55;
@@ -1041,11 +1041,11 @@ function updateCharacter(dt) {
         // 【上臂】自然垂下，隨呼吸輕微開合
         if (bone('leftUpperArm')) {
           // z 值越大 = 手臂越靠近身體；+1.35 比走路時的 +1.2 更靠近
-          bone('leftUpperArm').rotation.z =  1.15 + breathe * 0.4;
+          bone('leftUpperArm').rotation.z =  0.95 + breathe * 0.4;
           bone('leftUpperArm').rotation.x =  0;
         }
         if (bone('rightUpperArm')) {
-          bone('rightUpperArm').rotation.z = -1.15 - breathe * 0.4;
+          bone('rightUpperArm').rotation.z = -0.95 - breathe * 0.4;
           bone('rightUpperArm').rotation.x =  0;
         }
         // 【肩膀】輕微向前收，讓手臂更自然地貼近身體
