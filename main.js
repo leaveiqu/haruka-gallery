@@ -974,21 +974,24 @@ function updateCharacter(dt) {
       // 拇指單獨設定（拇指彎曲方向不同）
       const THUMB_CURL  = { Proximal: -0.2, Intermediate: -0.3, Distal: -0.4 };
 
-// ⚡ 請把整個 applyFingerCurl 完整替換成這段：
 const applyFingerCurl = () => {
   ['left', 'right'].forEach(side => {
     
-// ⚡ 請把四指這段代碼精準改成這樣：
 FINGER_NAMES.forEach(finger => {
   FINGER_JOINTS.forEach(joint => {
     const boneName = `${side}${finger}${joint}`; 
     const b = bone(boneName);
     
     if (b) {
-      // 關鍵修正：把剛剛導致自轉的 x 歸零，全部改走 y 軸！
       b.rotation.x = 0; 
       b.rotation.y = 0; 
-      b.rotation.z = FINGER_CURL[joint];
+      
+
+      if (side === 'left') {
+        b.rotation.z = -FINGER_CURL[joint]; 
+      } else {
+        b.rotation.z = FINGER_CURL[joint]; 
+      }
     }
   });
 });
