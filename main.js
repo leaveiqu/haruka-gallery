@@ -987,8 +987,8 @@ FINGER_NAMES.forEach(finger => {
     if (b) {
       // 關鍵修正：把剛剛導致自轉的 x 歸零，全部改走 y 軸！
       b.rotation.x = 0; 
-      b.rotation.y = FINGER_CURL[joint]; // 👈 切換到 Y 軸
-      b.rotation.z = 0;
+      b.rotation.y = 0; 
+      b.rotation.z = FINGER_CURL[joint];
     }
   });
 });
