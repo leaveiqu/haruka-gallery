@@ -972,7 +972,7 @@ function updateCharacter(dt) {
       // 各關節彎曲角度：近端稍彎、中端多彎、末端最彎，呈自然蜷縮
       const FINGER_CURL = { Proximal: -0.3, Intermediate: -0.4, Distal: -0.3 };
       // 拇指單獨設定（拇指彎曲方向不同）
-      const THUMB_CURL  = { Proximal: -0.2, Intermediate: -0.3, Distal: -0.2 };
+      const THUMB_CURL  = { Proximal: -0.2, Intermediate: -0.3, Distal: -0.4 };
 
 // ⚡ 請把整個 applyFingerCurl 完整替換成這段：
 const applyFingerCurl = () => {
@@ -1006,8 +1006,8 @@ const applyFingerCurl = () => {
         // 修正：只有最底部的關節（Proximal）需要往內收，其他關節不要亂轉
         if (joint === 'Proximal') {
           // 左手大拇指和右手大拇指內收方向相反
-          b.rotation.z = (side === 'left') ? -0.2 : 0.2;
-          b.rotation.y = (side === 'left') ? -0.1 : 0.1;
+          b.rotation.z = (side === 'left') ? 0.2 : -0.2;
+          b.rotation.y = (side === 'left') ? 0.1 : -0.1;
         } else {
           b.rotation.y = 0;
           b.rotation.z = 0;
