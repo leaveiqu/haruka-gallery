@@ -907,8 +907,11 @@ function updateCharacter(dt) {
       if (!bZ) { state.charPos.z = slideZ.z; }
     }
 
-    // [C] Quaternion slerp for smooth rotation
-    const targetAngle = Math.atan2(worldDir.x, worldDir.z);
+    // [C] Quaternion slerp — character faces movement direction
+    // atan2(x,z) gives the angle of worldDir on XZ plane.
+    // Add Math.PI because VRM default face direction is +Z,
+    // but we want the character to face TOWARD movement (away from camera).
+    const targetAngle = Math.atan2(worldDir.x, worldDir.z) + Math.PI;
     _tmpQuat.setFromAxisAngle(new THREE.Vector3(0,1,0), targetAngle);
     state.charQuat.slerp(_tmpQuat, Math.min(1, 12 * dt));
   }
@@ -943,28 +946,68 @@ function updateCharacter(dt) {
     const t = clock.elapsedTime;
     if (state.vrm && state.vrm.humanoid) {
       const h = state.vrm.humanoid;
+
+      // Helper: get bone node safely
+      const bone = (name) => h.getNormalizedBoneNode(name);
+
+      // ── Arms: T-pose fix ──
+      // VRM T-pose has arms at 90° sideways (rotation.z = ±π/2).
+      // We need to bring arms DOWN first (rotation.z → 0 or small value),
+      // then swing them forward/back via rotation.x.
+      // Natural arm-down position for VRM: leftUpperArm.z ≈ -1.2, rightUpperArm.z ≈ +1.2
+      // (slightly angled away from body, not flat at sides)
+
       if (moving) {
-        // Walking: swing arms and legs alternately
-        const swing = Math.sin(t * 8) * 0.4;
-        const bob   = Math.abs(Math.sin(t * 8)) * 0.02;
-        // Arm swing (opposite to legs)
-        h.getNormalizedBoneNode('leftUpperArm')  && (h.getNormalizedBoneNode('leftUpperArm').rotation.x  =  swing * 0.6);
-        h.getNormalizedBoneNode('rightUpperArm') && (h.getNormalizedBoneNode('rightUpperArm').rotation.x = -swing * 0.6);
-        // Leg swing
-        h.getNormalizedBoneNode('leftUpperLeg')  && (h.getNormalizedBoneNode('leftUpperLeg').rotation.x  = -swing * 0.5);
-        h.getNormalizedBoneNode('rightUpperLeg') && (h.getNormalizedBoneNode('rightUpperLeg').rotation.x =  swing * 0.5);
+        const swing = Math.sin(t * 7) * 0.45;   // walking frequency
+        const bob   = Math.abs(Math.sin(t * 7)) * 0.025;
+
+        // Left arm: bring down (z → -1.2) + swing forward/back (x)
+        if (bone('leftUpperArm')) {
+          bone('leftUpperArm').rotation.z = -1.2;          // arm down
+          bone('leftUpperArm').rotation.x =  swing * 0.7;  // forward swing
+        }
+        // Right arm: opposite swing
+        if (bone('rightUpperArm')) {
+          bone('rightUpperArm').rotation.z =  1.2;
+          bone('rightUpperArm').rotation.x = -swing * 0.7;
+        }
+        // Lower arms: slight natural bend
+        if (bone('leftLowerArm'))  bone('leftLowerArm').rotation.y  =  0.3;
+        if (bone('rightLowerArm')) bone('rightLowerArm').rotation.y = -0.3;
+
+        // Legs
+        if (bone('leftUpperLeg'))  bone('leftUpperLeg').rotation.x  = -swing * 0.55;
+        if (bone('rightUpperLeg')) bone('rightUpperLeg').rotation.x =  swing * 0.55;
+        if (bone('leftLowerLeg'))  bone('leftLowerLeg').rotation.x  = Math.max(0, -swing) * 0.4;
+        if (bone('rightLowerLeg')) bone('rightLowerLeg').rotation.x = Math.max(0,  swing) * 0.4;
+
         // Body bob
         state.vrm.scene.position.y = state.charPos.y + bob;
+
       } else {
-        // Idle: gentle breathing sway
-        const breathe = Math.sin(t * 1.5) * 0.008;
-        h.getNormalizedBoneNode('spine')  && (h.getNormalizedBoneNode('spine').rotation.z  = breathe);
-        h.getNormalizedBoneNode('chest')  && (h.getNormalizedBoneNode('chest').rotation.z  = breathe * 0.5);
-        // Reset limbs
-        h.getNormalizedBoneNode('leftUpperArm')  && (h.getNormalizedBoneNode('leftUpperArm').rotation.x  = 0);
-        h.getNormalizedBoneNode('rightUpperArm') && (h.getNormalizedBoneNode('rightUpperArm').rotation.x = 0);
-        h.getNormalizedBoneNode('leftUpperLeg')  && (h.getNormalizedBoneNode('leftUpperLeg').rotation.x  = 0);
-        h.getNormalizedBoneNode('rightUpperLeg') && (h.getNormalizedBoneNode('rightUpperLeg').rotation.x = 0);
+        // Idle: arms naturally down + gentle breathing
+        const breathe = Math.sin(t * 1.4) * 0.006;
+
+        if (bone('leftUpperArm')) {
+          bone('leftUpperArm').rotation.z = -1.2 + breathe * 0.5; // arm down, slight sway
+          bone('leftUpperArm').rotation.x = 0;
+        }
+        if (bone('rightUpperArm')) {
+          bone('rightUpperArm').rotation.z =  1.2 - breathe * 0.5;
+          bone('rightUpperArm').rotation.x = 0;
+        }
+        if (bone('leftLowerArm'))  bone('leftLowerArm').rotation.y  =  0.2;
+        if (bone('rightLowerArm')) bone('rightLowerArm').rotation.y = -0.2;
+
+        // Reset legs
+        if (bone('leftUpperLeg'))  bone('leftUpperLeg').rotation.x  = 0;
+        if (bone('rightUpperLeg')) bone('rightUpperLeg').rotation.x = 0;
+        if (bone('leftLowerLeg'))  bone('leftLowerLeg').rotation.x  = 0;
+        if (bone('rightLowerLeg')) bone('rightLowerLeg').rotation.x = 0;
+
+        // Spine breathing
+        if (bone('spine')) bone('spine').rotation.z = breathe;
+        if (bone('chest')) bone('chest').rotation.z = breathe * 0.4;
       }
     }
   }
