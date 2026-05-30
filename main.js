@@ -735,31 +735,61 @@ function loadCharacter() {
   );
 }
 
-// [E] Proper AnimationMixer with crossFade
+// [E] Robust AnimationMixer — works even when clip names are Japanese/unknown
 function setupAnimations(gltf) {
-  if (!gltf.animations?.length) { console.log('[Gallery] No animations in VRM.'); return; }
+  if (!gltf.animations?.length) {
+    console.log('[Gallery] No animation clips found in this VRM.');
+    return;
+  }
+
   const root = state.vrm?.scene ?? gltf.scene;
   state.mixer = new THREE.AnimationMixer(root);
 
-  const find = kw => gltf.animations.find(a => a.name.toLowerCase().includes(kw));
-  const idleClip = find('idle') || find('stand') || gltf.animations[0];
-  const walkClip = find('walk') || find('run');
+  // Log ALL clip names so we can see what's available in the console
+  console.log('[Gallery] All animation clips:',
+    gltf.animations.map((a, i) => `[${i}] "${a.name}"`).join(' | '));
+
+  // Search order: common English keywords → Japanese → index fallback
+  const find = (...keywords) =>
+    gltf.animations.find(a => keywords.some(kw => a.name.toLowerCase().includes(kw)));
+
+  // Idle: try multiple keywords, then fall back to clip[0]
+  const idleClip = find('idle', '待機', 'stand', 'neutral', 'default', 'rest')
+                ?? gltf.animations[0];
+
+  // Walk: try multiple keywords; if none found, don't force a fallback
+  const walkClip = find('walk', '歩', '歩行', 'run', 'move', 'walking');
 
   if (idleClip) {
     state.idleAction = state.mixer.clipAction(idleClip);
-    state.idleAction.reset().setEffectiveWeight(1).setEffectiveTimeScale(1).play();
+    // Reset clamps/weights completely before playing
+    state.idleAction.reset();
+    state.idleAction.clampWhenFinished = false;
+    state.idleAction.loop = THREE.LoopRepeat;
+    state.idleAction.setEffectiveWeight(1);
+    state.idleAction.setEffectiveTimeScale(1);
+    state.idleAction.play();
+    console.log('[Gallery] Playing idle:', idleClip.name);
   }
+
   if (walkClip) {
     state.walkAction = state.mixer.clipAction(walkClip);
-    state.walkAction.reset().setEffectiveWeight(0).setEffectiveTimeScale(1).play();
+    state.walkAction.reset();
+    state.walkAction.clampWhenFinished = false;
+    state.walkAction.loop = THREE.LoopRepeat;
+    state.walkAction.setEffectiveWeight(0);
+    state.walkAction.setEffectiveTimeScale(1);
+    state.walkAction.play();
+    console.log('[Gallery] Walk clip ready:', walkClip.name);
+  } else {
+    console.log('[Gallery] No walk clip found — will use idle for movement too.');
   }
-  console.log('[Gallery] idle:', idleClip?.name, '| walk:', walkClip?.name);
 }
 
 function setupVRMPosition() {
   if (!state.vrm) return;
   state.vrm.scene.position.copy(state.charPos);
-  state.vrm.scene.quaternion.copy(state.charQuat);
+  state.vrm.scene.rotation.y = Math.PI; // face into gallery on spawn
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -852,8 +882,20 @@ function updateCharacter(dt) {
   if (moving) {
     mv.normalize();
     // [F] Camera-relative direction
-    const sin=Math.sin(state.camYaw), cos=Math.cos(state.camYaw);
-    const worldDir = new THREE.Vector3(mv.x*cos - mv.z*sin, 0, mv.x*sin + mv.z*cos);
+    // camYaw=Math.PI means camera faces -Z (into gallery from entrance).
+    // We use camYaw directly — W key (mv.z=-1) should move in the direction
+    // the camera is facing. Formula: rotate input vector by camYaw.
+    // sin/cos of camYaw give the camera's forward direction on XZ plane.
+    const camFwdX = -Math.sin(state.camYaw);   // camera forward X component
+    const camFwdZ = -Math.cos(state.camYaw);   // camera forward Z component
+    const camRgtX =  Math.cos(state.camYaw);   // camera right X component
+    const camRgtZ = -Math.sin(state.camYaw);   // camera right Z component
+    // W/S move along camera forward; A/D move along camera right
+    const worldDir = new THREE.Vector3(
+      -mv.z * camFwdX + mv.x * camRgtX,
+      0,
+      -mv.z * camFwdZ + mv.x * camRgtZ
+    ).normalize();
 
     const next = state.charPos.clone().addScaledVector(worldDir, SPEED*dt);
 
@@ -904,7 +946,12 @@ function updateCharacter(dt) {
   state.vrm.scene.position.x = state.charPos.x;
   state.vrm.scene.position.z = state.charPos.z;
   state.vrm.scene.position.y = state.charPos.y + Math.sin(clock.elapsedTime*1.8)*0.002;
-  state.vrm.scene.quaternion.copy(state.charQuat);
+  // [C] Extract Y angle from quaternion and apply via rotation.y
+  // This is more reliable than quaternion.copy() on VRM root nodes
+  state.vrm.scene.rotation.y = Math.atan2(
+    2*(state.charQuat.w*state.charQuat.y + state.charQuat.x*state.charQuat.z),
+    1 - 2*(state.charQuat.y*state.charQuat.y + state.charQuat.z*state.charQuat.z)
+  );
 
   // [E] Animation crossFade — only on state change
   if (state.mixer && moving !== state.isWalking) {
