@@ -970,9 +970,9 @@ function updateCharacter(dt) {
       const FINGER_NAMES = ['Index', 'Middle', 'Ring', 'Little'];
       const FINGER_JOINTS = ['Proximal', 'Intermediate', 'Distal'];
       // 各關節彎曲角度：近端稍彎、中端多彎、末端最彎，呈自然蜷縮
-      const FINGER_CURL = { Proximal: -0.3, Intermediate: -0.4, Distal: -0.3 };
+      const FINGER_CURL = { Proximal: -0.3, Intermediate: -0.7, Distal: -0.3 };
       // 拇指單獨設定（拇指彎曲方向不同）
-      const THUMB_CURL  = { Proximal: -0.2, Intermediate: -0.3, Distal: -0.4 };
+      const THUMB_CURL  = { Proximal: 0.2, Intermediate: 0.3, Distal: 0.4 };
 
 const applyFingerCurl = () => {
   ['left', 'right'].forEach(side => {
