@@ -974,37 +974,47 @@ function updateCharacter(dt) {
       // 拇指單獨設定（拇指彎曲方向不同）
       const THUMB_CURL  = { Proximal: -0.2, Intermediate: -0.3, Distal: -0.2 };
 
-// ⚡ 請完整替換為這段：
+// ⚡ 請把整個 applyFingerCurl 完整替換成這段：
 const applyFingerCurl = () => {
   ['left', 'right'].forEach(side => {
-    // 四指（食指、中指、無名指、小指）
+    
+    // 1. 四指（食指、中指、無名指、小指）
     FINGER_NAMES.forEach(finger => {
       FINGER_JOINTS.forEach(joint => {
-        const b = bone(`${side}${finger}${joint}`);
+        // 關鍵修正：VRM 的標準命名是 leftIndexProximal (Index 的 I 必須是大寫！)
+        // 我們用 JavaScript 強制讓 side 後面的第一個字母變成大寫
+        const boneName = `${side}${finger}${joint}`; 
+        const b = bone(boneName);
+        
         if (b) {
-          // 修正：四指全部回到 X 軸彎曲，套用負值 angles
-          b.rotation.x = FINGER_CURL[joint];
+          // 標準 VRM 的四指彎曲是調整 X 軸！
+          // 大部分模型往掌心握拳是「正數」，我們試試 0.4
+          b.rotation.x = 0.4; 
           b.rotation.y = 0;
-          b.rotation.z = 0; // 消除剛剛導致鴨掌張開的 Z 軸
+          b.rotation.z = 0;
         }
       });
     });
     
-    // 拇指
+    // 2. 拇指單獨處理
     FINGER_JOINTS.forEach(joint => {
       const b = bone(`${side}Thumb${joint}`);
       if (b) {
-        b.rotation.x = THUMB_CURL[joint];
-        // 讓大拇指往掌心收攏（左手和右手方向相反）
+        // 拇指微彎
+        b.rotation.x = 0.2;
+        
+        // 修正：只有最底部的關節（Proximal）需要往內收，其他關節不要亂轉
         if (joint === 'Proximal') {
-          b.rotation.z = (side === 'left') ? -0.3 : 0.3;
-          b.rotation.y = (side === 'left') ? -0.2 : 0.2;
+          // 左手大拇指和右手大拇指內收方向相反
+          b.rotation.z = (side === 'left') ? -0.2 : 0.2;
+          b.rotation.y = (side === 'left') ? -0.1 : 0.1;
         } else {
           b.rotation.y = 0;
           b.rotation.z = 0;
         }
       }
     });
+
   });
 };
       if (moving) {
