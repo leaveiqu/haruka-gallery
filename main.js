@@ -970,9 +970,9 @@ function updateCharacter(dt) {
       const FINGER_NAMES = ['Index', 'Middle', 'Ring', 'Little'];
       const FINGER_JOINTS = ['Proximal', 'Intermediate', 'Distal'];
       // 各關節彎曲角度：近端稍彎、中端多彎、末端最彎，呈自然蜷縮
-      const FINGER_CURL = { Proximal: 0.25, Intermediate: 0.35, Distal: -0.25 };
+      const FINGER_CURL = { Proximal: -0.3, Intermediate: -0.4, Distal: -0.3 };
       // 拇指單獨設定（拇指彎曲方向不同）
-      const THUMB_CURL  = { Proximal: 0.25, Intermediate: 0.3, Distal: 0.2 };
+      const THUMB_CURL  = { Proximal: -0.2, Intermediate: -0.3, Distal: -0.2 };
 
 // ⚡ 請完整替換為這段：
 const applyFingerCurl = () => {
@@ -982,35 +982,31 @@ const applyFingerCurl = () => {
       FINGER_JOINTS.forEach(joint => {
         const b = bone(`${side}${finger}${joint}`);
         if (b) {
-          // 關鍵修正：四指彎曲是調整 Z 軸！
-          // 左手往內彎是正數，右手往內彎是負數
-          if (side === 'left') {
-            b.rotation.z = FINGER_CURL[joint];
-          } else {
-            b.rotation.z = -FINGER_CURL[joint];
-          }
-          // 確保四指的 X 軸與 Y 軸是直的，不亂扭
-          b.rotation.x = 0;
+          // 修正：四指全部回到 X 軸彎曲，套用負值 angles
+          b.rotation.x = FINGER_CURL[joint];
           b.rotation.y = 0;
+          b.rotation.z = 0; // 消除剛剛導致鴨掌張開的 Z 軸
         }
       });
     });
     
-    // 拇指（維持調 X 軸，但優化收攏角度）
+    // 拇指
     FINGER_JOINTS.forEach(joint => {
       const b = bone(`${side}Thumb${joint}`);
       if (b) {
         b.rotation.x = THUMB_CURL[joint];
-        // 拇指向掌心內收（左手為負，右手為正）
+        // 讓大拇指往掌心收攏（左手和右手方向相反）
         if (joint === 'Proximal') {
-          b.rotation.z = (side === 'left') ? -0.4 : 0.4;
+          b.rotation.z = (side === 'left') ? -0.3 : 0.3;
           b.rotation.y = (side === 'left') ? -0.2 : 0.2;
+        } else {
+          b.rotation.y = 0;
+          b.rotation.z = 0;
         }
       }
     });
   });
 };
-
       if (moving) {
         // ─────────────────────────────────────────────────────
         //  【走路狀態】
@@ -1022,12 +1018,12 @@ const applyFingerCurl = () => {
 
         // 【左上臂】放下（z=+1.2）並前後擺動（x）
         if (bone('leftUpperArm')) {
-          bone('leftUpperArm').rotation.z =  1.05;
+          bone('leftUpperArm').rotation.z =  1.1;
           bone('leftUpperArm').rotation.x =  swing * 0.85;
         }
         // 【右上臂】放下（z=-1.2）並反向擺動
         if (bone('rightUpperArm')) {
-          bone('rightUpperArm').rotation.z = -1.05;
+          bone('rightUpperArm').rotation.z = -1.1;
           bone('rightUpperArm').rotation.x = -swing * 0.85;
         }
         // 【下臂】走路時輕微彎曲，更自然
@@ -1057,11 +1053,11 @@ const applyFingerCurl = () => {
         // 【上臂】自然垂下，隨呼吸輕微開合
         if (bone('leftUpperArm')) {
           // z 值越大 = 手臂越靠近身體；+1.35 比走路時的 +1.2 更靠近
-          bone('leftUpperArm').rotation.z =  1.05 + breathe * 0.4;
+          bone('leftUpperArm').rotation.z =  1.1 + breathe * 0.4;
           bone('leftUpperArm').rotation.x =  0;
         }
         if (bone('rightUpperArm')) {
-          bone('rightUpperArm').rotation.z = -1.05 - breathe * 0.4;
+          bone('rightUpperArm').rotation.z = -1.1 - breathe * 0.4;
           bone('rightUpperArm').rotation.x =  0;
         }
         // 【肩膀】輕微向前收，讓手臂更自然地貼近身體
