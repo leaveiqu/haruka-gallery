@@ -978,23 +978,21 @@ function updateCharacter(dt) {
 const applyFingerCurl = () => {
   ['left', 'right'].forEach(side => {
     
-    // 1. 四指（食指、中指、無名指、小指）
-    FINGER_NAMES.forEach(finger => {
-      FINGER_JOINTS.forEach(joint => {
-        // 關鍵修正：VRM 的標準命名是 leftIndexProximal (Index 的 I 必須是大寫！)
-        // 我們用 JavaScript 強制讓 side 後面的第一個字母變成大寫
-        const boneName = `${side}${finger}${joint}`; 
-        const b = bone(boneName);
-        
-        if (b) {
-          // 標準 VRM 的四指彎曲是調整 X 軸！
-          // 大部分模型往掌心握拳是「正數」，我們試試 0.4
-          b.rotation.x = 1.5; 
-          b.rotation.y = 0;
-          b.rotation.z = 0;
-        }
-      });
-    });
+// ⚡ 請把 1. 四指這段代碼改成這樣：
+FINGER_NAMES.forEach(finger => {
+  FINGER_JOINTS.forEach(joint => {
+    const boneName = `${side}${finger}${joint}`; 
+    const b = bone(boneName);
+    
+    if (b) {
+      // 關鍵修正：從正數 1.5 改回負數變數 FINGER_CURL
+      // 負數會讓剛才往後折的手指，全部往前（掌心）自然微蜷！
+      b.rotation.x = FINGER_CURL[joint]; 
+      b.rotation.y = 0;
+      b.rotation.z = 0;
+    }
+  });
+});
     
     // 2. 拇指單獨處理
     FINGER_JOINTS.forEach(joint => {
