@@ -957,57 +957,119 @@ function updateCharacter(dt) {
       // Natural arm-down position for VRM: leftUpperArm.z ≈ -1.2, rightUpperArm.z ≈ +1.2
       // (slightly angled away from body, not flat at sides)
 
+      // ─────────────────────────────────────────────────────────
+      //  【手指骨骼微彎】
+      //  VRM 標準手指骨骼命名規律：
+      //    {side}{Finger}{Joint}
+      //    side  : left / right
+      //    finger: Thumb / Index / Middle / Ring / Little
+      //    joint : Proximal / Intermediate / Distal
+      //  使用陣列 + 迴圈統一設定，避免重複代碼。
+      //  rotation.x 正值 = 往掌心方向彎曲（VRM 座標系）
+      // ─────────────────────────────────────────────────────────
+      const FINGER_NAMES = ['Index', 'Middle', 'Ring', 'Little'];
+      const FINGER_JOINTS = ['Proximal', 'Intermediate', 'Distal'];
+      // 各關節彎曲角度：近端稍彎、中端多彎、末端最彎，呈自然蜷縮
+      const FINGER_CURL = { Proximal: 0.18, Intermediate: 0.28, Distal: 0.22 };
+      // 拇指單獨設定（拇指彎曲方向不同）
+      const THUMB_CURL  = { Proximal: 0.20, Intermediate: 0.18, Distal: 0.12 };
+
+      const applyFingerCurl = () => {
+        ['left', 'right'].forEach(side => {
+          // 四指
+          FINGER_NAMES.forEach(finger => {
+            FINGER_JOINTS.forEach(joint => {
+              const b = bone(`${side}${finger}${joint}`);
+              if (b) b.rotation.x = FINGER_CURL[joint];
+            });
+          });
+          // 拇指
+          FINGER_JOINTS.forEach(joint => {
+            const b = bone(`${side}Thumb${joint}`);
+            if (b) {
+              b.rotation.x = THUMB_CURL[joint];
+              // 拇指向掌心收攏（z 軸）
+              if (joint === 'Proximal') b.rotation.z = (side === 'left') ? -0.3 : 0.3;
+            }
+          });
+        });
+      };
+
       if (moving) {
-        const swing = Math.sin(t * 7) * 0.45;   // walking frequency
+        // ─────────────────────────────────────────────────────
+        //  【走路狀態】
+        //  正弦波頻率 7 rad/s ≈ 步頻，與移動速度 4.0 匹配。
+        //  手臂與腿部反向擺動（左手 = 右腿同步）。
+        // ─────────────────────────────────────────────────────
+        const swing = Math.sin(t * 7) * 0.45;
         const bob   = Math.abs(Math.sin(t * 7)) * 0.025;
 
-        // Left arm: rotation.z = +1.2 brings arm DOWN in VRM coordinate space
+        // 【左上臂】放下（z=+1.2）並前後擺動（x）
         if (bone('leftUpperArm')) {
           bone('leftUpperArm').rotation.z =  1.2;
-          bone('leftUpperArm').rotation.x =  swing * 0.7;
+          bone('leftUpperArm').rotation.x =  swing * 0.65;
         }
-        // Right arm: rotation.z = -1.2 brings arm DOWN
+        // 【右上臂】放下（z=-1.2）並反向擺動
         if (bone('rightUpperArm')) {
           bone('rightUpperArm').rotation.z = -1.2;
-          bone('rightUpperArm').rotation.x = -swing * 0.7;
+          bone('rightUpperArm').rotation.x = -swing * 0.65;
         }
-        // Lower arms: slight natural bend
-        if (bone('leftLowerArm'))  bone('leftLowerArm').rotation.y  =  0.3;
-        if (bone('rightLowerArm')) bone('rightLowerArm').rotation.y = -0.3;
+        // 【下臂】走路時輕微彎曲，更自然
+        if (bone('leftLowerArm'))  bone('leftLowerArm').rotation.y  =  0.25;
+        if (bone('rightLowerArm')) bone('rightLowerArm').rotation.y = -0.25;
 
-        // Legs
+        // 【大腿】前後交替擺動
         if (bone('leftUpperLeg'))  bone('leftUpperLeg').rotation.x  = -swing * 0.55;
         if (bone('rightUpperLeg')) bone('rightUpperLeg').rotation.x =  swing * 0.55;
-        if (bone('leftLowerLeg'))  bone('leftLowerLeg').rotation.x  = Math.max(0, -swing) * 0.4;
-        if (bone('rightLowerLeg')) bone('rightLowerLeg').rotation.x = Math.max(0,  swing) * 0.4;
+        // 【小腿】膝蓋自然折疊（只在後擺時彎曲）
+        if (bone('leftLowerLeg'))  bone('leftLowerLeg').rotation.x  = Math.max(0, -swing) * 0.35;
+        if (bone('rightLowerLeg')) bone('rightLowerLeg').rotation.x = Math.max(0,  swing) * 0.35;
 
-        // Body bob
+        // 【身體輕微上下晃動】
         state.vrm.scene.position.y = state.charPos.y + bob;
 
+        // 【走路時手指保持微蜷】
+        applyFingerCurl();
+
       } else {
-        // Idle: arms naturally down + gentle breathing
+        // ─────────────────────────────────────────────────────
+        //  【靜止（Idle）狀態】
+        //  呼吸頻率 1.4 rad/s ≈ 每 4.5 秒一次呼吸，非常輕柔。
+        // ─────────────────────────────────────────────────────
         const breathe = Math.sin(t * 1.4) * 0.006;
 
+        // 【上臂】自然垂下，隨呼吸輕微開合
         if (bone('leftUpperArm')) {
-          bone('leftUpperArm').rotation.z =  1.2 + breathe * 0.5;
-          bone('leftUpperArm').rotation.x = 0;
+          // z 值越大 = 手臂越靠近身體；+1.35 比走路時的 +1.2 更靠近
+          bone('leftUpperArm').rotation.z =  1.35 + breathe * 0.4;
+          bone('leftUpperArm').rotation.x =  0;
         }
         if (bone('rightUpperArm')) {
-          bone('rightUpperArm').rotation.z = -1.2 - breathe * 0.5;
-          bone('rightUpperArm').rotation.x = 0;
+          bone('rightUpperArm').rotation.z = -1.35 - breathe * 0.4;
+          bone('rightUpperArm').rotation.x =  0;
         }
-        if (bone('leftLowerArm'))  bone('leftLowerArm').rotation.y  =  0.2;
-        if (bone('rightLowerArm')) bone('rightLowerArm').rotation.y = -0.2;
+        // 【肩膀】輕微向前收，讓手臂更自然地貼近身體
+        if (bone('leftShoulder'))  bone('leftShoulder').rotation.z  =  0.08;
+        if (bone('rightShoulder')) bone('rightShoulder').rotation.z = -0.08;
 
-        // Reset legs
+        // 【下臂】自然微彎
+        if (bone('leftLowerArm'))  bone('leftLowerArm').rotation.y  =  0.15;
+        if (bone('rightLowerArm')) bone('rightLowerArm').rotation.y = -0.15;
+
+        // 【腿部歸零】
         if (bone('leftUpperLeg'))  bone('leftUpperLeg').rotation.x  = 0;
         if (bone('rightUpperLeg')) bone('rightUpperLeg').rotation.x = 0;
         if (bone('leftLowerLeg'))  bone('leftLowerLeg').rotation.x  = 0;
         if (bone('rightLowerLeg')) bone('rightLowerLeg').rotation.x = 0;
 
-        // Spine breathing
+        // 【脊椎/胸腔】隨呼吸輕微起伏
         if (bone('spine')) bone('spine').rotation.z = breathe;
         if (bone('chest')) bone('chest').rotation.z = breathe * 0.4;
+        // 呼吸時身體高度輕微變化
+        state.vrm.scene.position.y = state.charPos.y + Math.abs(breathe) * 0.3;
+
+        // 【靜止時手指保持微蜷】
+        applyFingerCurl();
       }
     }
   }
