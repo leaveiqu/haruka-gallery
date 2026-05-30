@@ -1007,12 +1007,12 @@ function updateCharacter(dt) {
         // 【左上臂】放下（z=+1.2）並前後擺動（x）
         if (bone('leftUpperArm')) {
           bone('leftUpperArm').rotation.z =  1.2;
-          bone('leftUpperArm').rotation.x =  swing * 0.65;
+          bone('leftUpperArm').rotation.x =  swing * 0.85;
         }
         // 【右上臂】放下（z=-1.2）並反向擺動
         if (bone('rightUpperArm')) {
           bone('rightUpperArm').rotation.z = -1.2;
-          bone('rightUpperArm').rotation.x = -swing * 0.65;
+          bone('rightUpperArm').rotation.x = -swing * 0.85;
         }
         // 【下臂】走路時輕微彎曲，更自然
         if (bone('leftLowerArm'))  bone('leftLowerArm').rotation.y  =  0.25;
@@ -1041,11 +1041,11 @@ function updateCharacter(dt) {
         // 【上臂】自然垂下，隨呼吸輕微開合
         if (bone('leftUpperArm')) {
           // z 值越大 = 手臂越靠近身體；+1.35 比走路時的 +1.2 更靠近
-          bone('leftUpperArm').rotation.z =  1.35 + breathe * 0.4;
+          bone('leftUpperArm').rotation.z =  1.2 + breathe * 0.4;
           bone('leftUpperArm').rotation.x =  0;
         }
         if (bone('rightUpperArm')) {
-          bone('rightUpperArm').rotation.z = -1.35 - breathe * 0.4;
+          bone('rightUpperArm').rotation.z = -1.2 - breathe * 0.4;
           bone('rightUpperArm').rotation.x =  0;
         }
         // 【肩膀】輕微向前收，讓手臂更自然地貼近身體
