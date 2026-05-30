@@ -241,8 +241,11 @@ function buildLighting() {
   state.candleLight.position.set(0, 2.2, -6);
   scene.add(state.candleLight);
 
-  scene.add(Object.assign(new THREE.PointLight(C_GREEN, 0.28, 8), { position: new THREE.Vector3(0, 2, 19) }));
-  scene.add(Object.assign(new THREE.PointLight(C_BLUE,  0.22, 10),{ position: new THREE.Vector3(-11,2,0) }));
+  const gf = new THREE.PointLight(C_GREEN, 0.28, 8);
+  gf.position.set(0, 2, 19); scene.add(gf);
+
+  const bf = new THREE.PointLight(C_BLUE, 0.22, 10);
+  bf.position.set(-11, 2, 0); scene.add(bf);
 }
 
 // ─────────────────────────────────────────────────────────────────
