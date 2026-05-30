@@ -1044,26 +1044,22 @@ FINGER_NAMES.forEach(finger => {
         if (bone('leftUpperLeg'))  bone('leftUpperLeg').rotation.x  = -swing * 0.55;
         if (bone('rightUpperLeg')) bone('rightUpperLeg').rotation.x =  swing * 0.55;
         // 【小腿】膝蓋自然折疊（只在後擺時彎曲）
-const leftLeg = bone('leftLowerLeg');
+const leftKneeAngle = Math.max(0, -swing) * 1.25 + 0.1;
+        const leftLeg = bone('leftLowerLeg');
         if (leftLeg) {
-            // 算一個非常誇張的角度來測試（例如 1.5 接近 90 度）
-            const targetAngle = Math.max(0, -swing) * 1.5; 
-            
-            // 寫法 1：一般旋轉
-            leftLeg.rotation.x = targetAngle;
-            // 寫法 2：強制突破動畫檔封鎖（雙重保險）
+            leftLeg.rotation.x = leftKneeAngle; // 寫法 1
             if (leftLeg.vrmBone && leftLeg.vrmBone.node) {
-                leftLeg.vrmBone.node.rotation.x = targetAngle;
+                leftLeg.vrmBone.node.rotation.x = leftKneeAngle; // 寫法 2（突破動畫封鎖）
             }
         }
 
+        // 2. 右膝蓋計算
+        const rightKneeAngle = Math.max(0, swing) * 1.25 + 0.1;
         const rightLeg = bone('rightLowerLeg');
         if (rightLeg) {
-            const targetAngle = Math.max(0, swing) * 1.5;
-            
-            rightLeg.rotation.x = targetAngle;
+            rightLeg.rotation.x = rightKneeAngle; // 寫法 1
             if (rightLeg.vrmBone && rightLeg.vrmBone.node) {
-                rightLeg.vrmBone.node.rotation.x = targetAngle;
+                rightLeg.vrmBone.node.rotation.x = rightKneeAngle; // 寫法 2（突破動畫封鎖）
             }
         }
 
