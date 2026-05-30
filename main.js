@@ -191,11 +191,22 @@ manager.onProgress = (_url, loaded, total) => {
   loadBar.style.width  = pct + '%';
   loadText.textContent = `正在前往畫展... ${pct}%`;
 };
+let _loadingDone = false;
 function finishLoading() {
+  if (_loadingDone) return;   // guard: only run once
+  _loadingDone = true;
   loadText.textContent = '歡迎蒞臨！';
   loadBar.style.width  = '100%';
   setTimeout(() => { loadScreen.classList.add('fade-out'); hud.classList.add('visible'); }, 700);
 }
+// Safety net: if something goes wrong (network, CORS, etc.)
+// force-dismiss the loading screen after 12 seconds
+setTimeout(() => {
+  if (!_loadingDone) {
+    console.warn('[Gallery] Loading timeout — forcing dismiss');
+    finishLoading();
+  }
+}, 12000);
 
 // ─────────────────────────────────────────────────────────────────
 //  LIGHTING  [H] Warmer birthday atmosphere
@@ -586,7 +597,12 @@ function buildBalloon(x,y,z,color) {
 //  [B] ARTWORK FRAMES — auto aspect ratio
 // ─────────────────────────────────────────────────────────────────
 function buildArtworks() {
-  const texLoader = new THREE.TextureLoader(manager);
+  // ── IMPORTANT: use a standalone TextureLoader (NOT manager) ──
+  // Images load asynchronously AFTER the scene is ready.
+  // Tying them to manager would block finishLoading() until every
+  // image has downloaded, causing the loading screen to hang if
+  // any image 404s or takes too long.
+  const texLoader = new THREE.TextureLoader();
 
   ARTWORKS.forEach((art) => {
     // We defer frame creation until we know actual image size.
