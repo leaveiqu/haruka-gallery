@@ -5,15 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Haruka's Gallery — A Birthday Gift</title>
   <link rel="stylesheet" href="style.css" />
-
-  <!-- Three.js r128 via CDN -->
   <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
   <script type="importmap">
   {
     "imports": {
-      "three":            "https://unpkg.com/three@0.158.0/build/three.module.js",
-      "three/addons/":    "https://unpkg.com/three@0.158.0/examples/jsm/",
-      "@pixiv/three-vrm":"https://unpkg.com/@pixiv/three-vrm@2.1.0/lib/three-vrm.module.js"
+      "three":             "https://unpkg.com/three@0.158.0/build/three.module.js",
+      "three/addons/":     "https://unpkg.com/three@0.158.0/examples/jsm/",
+      "@pixiv/three-vrm": "https://unpkg.com/@pixiv/three-vrm@2.1.0/lib/three-vrm.module.js"
     }
   }
   </script>
@@ -24,13 +22,33 @@
   <div id="loading-screen">
     <div class="loading-inner">
       <div class="loading-logo">
-        <!-- SVG clover logo (More More Jump! motif) -->
-        <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="40" cy="22" r="14" fill="#88dd44" opacity="0.9"/>
-          <circle cx="58" cy="50" r="14" fill="#88dd44" opacity="0.9"/>
-          <circle cx="22" cy="50" r="14" fill="#88dd44" opacity="0.9"/>
-          <rect x="36" y="50" width="8" height="20" rx="4" fill="#88dd44" opacity="0.8"/>
-          <circle cx="40" cy="40" r="10" fill="#ffffff" opacity="0.15"/>
+        <!--
+          三葉草 SVG：三個愛心，尖端朝向中心，各旋轉 0°/120°/240°
+          每個 <path> 是一顆心形，tip 在原點下方，圓弧朝外
+        -->
+        <svg viewBox="-40 -40 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+         
+
+          <!-- 愛心 1：朝上（0°） -->
+          <g transform="rotate(0)  translate(0,-20)">
+            <path d="M0,14 C-14,6 -14,-10 0,-4 C14,-10 14,6 0,14Z"
+                  fill="#88dd44" opacity="0.92"/>
+          </g>
+
+          <!-- 愛心 2：朝右下（120°） -->
+          <g transform="rotate(120) translate(0,-20)">
+            <path d="M0,14 C-14,6 -14,-10 0,-4 C14,-10 14,6 0,14Z"
+                  fill="#88dd44" opacity="0.92"/>
+          </g>
+
+          <!-- 愛心 3：朝左下（240°） -->
+          <g transform="rotate(240) translate(0,-20)">
+            <path d="M0,14 C-14,6 -14,-10 0,-4 C14,-10 14,6 0,14Z"
+                  fill="#88dd44" opacity="0.92"/>
+          </g>
+
+          <!-- 中心小圓 -->
+          <circle cx="0" cy="0" r="5" fill="#88dd44" opacity="0.7"/>
         </svg>
       </div>
       <div class="loading-title">Haruka's Gallery</div>
@@ -45,17 +63,18 @@
   <!-- ── HUD ── -->
   <div id="hud">
     <div id="compass">
-      <svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" stroke="#99CCFF" stroke-width="1.5" fill="none"/>
+      <svg viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r="16" stroke="#99CCFF" stroke-width="1.5" fill="none"/>
         <polygon id="compass-needle" points="18,4 21,18 18,22 15,18" fill="#88dd44"/>
         <polygon points="18,32 21,18 18,14 15,18" fill="#ccc" opacity="0.5"/>
       </svg>
     </div>
     <div id="controls-hint">
-      <span>WASD</span> 移動　<span>滑鼠</span> 視角　<span>點擊畫作</span> 觀賞
+      <span>WASD</span> 移動　<span>滑鼠拖曳</span> 視角　<span>點擊畫作</span> 觀賞
     </div>
   </div>
 
-  <!-- ── Artwork Popup Panel ── -->
+  <!-- ── Artwork Panel ── -->
   <div id="artwork-panel" class="hidden">
     <button id="panel-close">✕</button>
     <div id="panel-label">A R T W O R K</div>
@@ -65,9 +84,7 @@
     <div id="panel-meta"></div>
   </div>
 
-  <!-- ── Canvas ── -->
   <canvas id="canvas"></canvas>
-
   <script type="module" src="main.js"></script>
 </body>
 </html>
