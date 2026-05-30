@@ -1044,8 +1044,8 @@ FINGER_NAMES.forEach(finger => {
         if (bone('leftUpperLeg'))  bone('leftUpperLeg').rotation.x  = -swing * 0.55;
         if (bone('rightUpperLeg')) bone('rightUpperLeg').rotation.x =  swing * 0.55;
         // 【小腿】膝蓋自然折疊（只在後擺時彎曲）
-        if (bone('leftLowerLeg'))  bone('leftLowerLeg').rotation.x  = Math.max(0, -swing) * 0.35;
-        if (bone('rightLowerLeg')) bone('rightLowerLeg').rotation.x = Math.max(0,  swing) * 0.35;
+if (bone('leftLowerLeg'))  bone('leftLowerLeg').rotation.x  = Math.max(0, -swing) * 0.6;
+if (bone('rightLowerLeg')) bone('rightLowerLeg').rotation.x = Math.max(0,  swing) * 0.6;
 
         // 【身體輕微上下晃動】
         state.vrm.scene.position.y = state.charPos.y + bob;
