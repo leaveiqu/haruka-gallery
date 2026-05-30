@@ -989,7 +989,7 @@ const applyFingerCurl = () => {
         if (b) {
           // 標準 VRM 的四指彎曲是調整 X 軸！
           // 大部分模型往掌心握拳是「正數」，我們試試 0.4
-          b.rotation.x = 0.4; 
+          b.rotation.x = 1.5; 
           b.rotation.y = 0;
           b.rotation.z = 0;
         }
