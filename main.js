@@ -1044,8 +1044,28 @@ FINGER_NAMES.forEach(finger => {
         if (bone('leftUpperLeg'))  bone('leftUpperLeg').rotation.x  = -swing * 0.55;
         if (bone('rightUpperLeg')) bone('rightUpperLeg').rotation.x =  swing * 0.55;
         // 【小腿】膝蓋自然折疊（只在後擺時彎曲）
-if (bone('leftLowerLeg'))  bone('leftLowerLeg').rotation.x  = Math.max(0, -swing) * 1.3 + 0.1;
-        if (bone('rightLowerLeg')) bone('rightLowerLeg').rotation.x = Math.max(0,  swing) * 1.3 + 0.1;
+const leftLeg = bone('leftLowerLeg');
+        if (leftLeg) {
+            // 算一個非常誇張的角度來測試（例如 1.5 接近 90 度）
+            const targetAngle = Math.max(0, -swing) * 1.5; 
+            
+            // 寫法 1：一般旋轉
+            leftLeg.rotation.x = targetAngle;
+            // 寫法 2：強制突破動畫檔封鎖（雙重保險）
+            if (leftLeg.vrmBone && leftLeg.vrmBone.node) {
+                leftLeg.vrmBone.node.rotation.x = targetAngle;
+            }
+        }
+
+        const rightLeg = bone('rightLowerLeg');
+        if (rightLeg) {
+            const targetAngle = Math.max(0, swing) * 1.5;
+            
+            rightLeg.rotation.x = targetAngle;
+            if (rightLeg.vrmBone && rightLeg.vrmBone.node) {
+                rightLeg.vrmBone.node.rotation.x = targetAngle;
+            }
+        }
 
         // 【身體輕微上下晃動】
         state.vrm.scene.position.y = state.charPos.y + bob;
