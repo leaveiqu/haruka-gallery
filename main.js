@@ -735,61 +735,31 @@ function loadCharacter() {
   );
 }
 
-// [E] Robust AnimationMixer — works even when clip names are Japanese/unknown
+// [E] Proper AnimationMixer with crossFade
 function setupAnimations(gltf) {
-  if (!gltf.animations?.length) {
-    console.log('[Gallery] No animation clips found in this VRM.');
-    return;
-  }
-
+  if (!gltf.animations?.length) { console.log('[Gallery] No animations in VRM.'); return; }
   const root = state.vrm?.scene ?? gltf.scene;
   state.mixer = new THREE.AnimationMixer(root);
 
-  // Log ALL clip names so we can see what's available in the console
-  console.log('[Gallery] All animation clips:',
-    gltf.animations.map((a, i) => `[${i}] "${a.name}"`).join(' | '));
-
-  // Search order: common English keywords → Japanese → index fallback
-  const find = (...keywords) =>
-    gltf.animations.find(a => keywords.some(kw => a.name.toLowerCase().includes(kw)));
-
-  // Idle: try multiple keywords, then fall back to clip[0]
-  const idleClip = find('idle', '待機', 'stand', 'neutral', 'default', 'rest')
-                ?? gltf.animations[0];
-
-  // Walk: try multiple keywords; if none found, don't force a fallback
-  const walkClip = find('walk', '歩', '歩行', 'run', 'move', 'walking');
+  const find = kw => gltf.animations.find(a => a.name.toLowerCase().includes(kw));
+  const idleClip = find('idle') || find('stand') || gltf.animations[0];
+  const walkClip = find('walk') || find('run');
 
   if (idleClip) {
     state.idleAction = state.mixer.clipAction(idleClip);
-    // Reset clamps/weights completely before playing
-    state.idleAction.reset();
-    state.idleAction.clampWhenFinished = false;
-    state.idleAction.loop = THREE.LoopRepeat;
-    state.idleAction.setEffectiveWeight(1);
-    state.idleAction.setEffectiveTimeScale(1);
-    state.idleAction.play();
-    console.log('[Gallery] Playing idle:', idleClip.name);
+    state.idleAction.reset().setEffectiveWeight(1).setEffectiveTimeScale(1).play();
   }
-
   if (walkClip) {
     state.walkAction = state.mixer.clipAction(walkClip);
-    state.walkAction.reset();
-    state.walkAction.clampWhenFinished = false;
-    state.walkAction.loop = THREE.LoopRepeat;
-    state.walkAction.setEffectiveWeight(0);
-    state.walkAction.setEffectiveTimeScale(1);
-    state.walkAction.play();
-    console.log('[Gallery] Walk clip ready:', walkClip.name);
-  } else {
-    console.log('[Gallery] No walk clip found — will use idle for movement too.');
+    state.walkAction.reset().setEffectiveWeight(0).setEffectiveTimeScale(1).play();
   }
+  console.log('[Gallery] idle:', idleClip?.name, '| walk:', walkClip?.name);
 }
 
 function setupVRMPosition() {
   if (!state.vrm) return;
   state.vrm.scene.position.copy(state.charPos);
-  state.vrm.scene.rotation.y = Math.PI; // face into gallery on spawn
+  state.vrm.scene.quaternion.copy(state.charQuat);
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -881,21 +851,22 @@ function updateCharacter(dt) {
 
   if (moving) {
     mv.normalize();
-    // [F] Camera-relative direction
-    // camYaw=Math.PI means camera faces -Z (into gallery from entrance).
-    // We use camYaw directly — W key (mv.z=-1) should move in the direction
-    // the camera is facing. Formula: rotate input vector by camYaw.
-    // sin/cos of camYaw give the camera's forward direction on XZ plane.
-    const camFwdX = -Math.sin(state.camYaw);   // camera forward X component
-    const camFwdZ = -Math.cos(state.camYaw);   // camera forward Z component
-    const camRgtX =  Math.cos(state.camYaw);   // camera right X component
-    const camRgtZ = -Math.sin(state.camYaw);   // camera right Z component
-    // W/S move along camera forward; A/D move along camera right
+    // Camera-relative movement:
+    // Camera sits behind character at angle camYaw.
+    // Camera forward (where camera looks) = (-sin(yaw), 0, -cos(yaw))
+    // Camera right = (cos(yaw), 0, -sin(yaw))
+    // W(mv.z=-1) → move forward (into scene), S(mv.z=+1) → move backward
+    // A(mv.x=-1) → move left,                 D(mv.x=+1) → move right
+    const fwdX = -Math.sin(state.camYaw);
+    const fwdZ = -Math.cos(state.camYaw);
+    const rgtX =  Math.cos(state.camYaw);
+    const rgtZ = -Math.sin(state.camYaw);
     const worldDir = new THREE.Vector3(
-      -mv.z * camFwdX + mv.x * camRgtX,
-      0,
-      -mv.z * camFwdZ + mv.x * camRgtZ
-    ).normalize();
+      -mv.z * fwdX + mv.x * rgtX,
+       0,
+      -mv.z * fwdZ + mv.x * rgtZ
+    );
+    if (worldDir.lengthSq() > 0) worldDir.normalize();
 
     const next = state.charPos.clone().addScaledVector(worldDir, SPEED*dt);
 
@@ -946,20 +917,55 @@ function updateCharacter(dt) {
   state.vrm.scene.position.x = state.charPos.x;
   state.vrm.scene.position.z = state.charPos.z;
   state.vrm.scene.position.y = state.charPos.y + Math.sin(clock.elapsedTime*1.8)*0.002;
-  // [C] Extract Y angle from quaternion and apply via rotation.y
-  // This is more reliable than quaternion.copy() on VRM root nodes
-  state.vrm.scene.rotation.y = Math.atan2(
+  // VRM: extract Y rotation from quaternion and apply via rotation.y
+  // (direct quaternion.copy is unreliable on VRM scene roots)
+  const ey = Math.atan2(
     2*(state.charQuat.w*state.charQuat.y + state.charQuat.x*state.charQuat.z),
     1 - 2*(state.charQuat.y*state.charQuat.y + state.charQuat.z*state.charQuat.z)
   );
+  state.vrm.scene.rotation.y = ey;
 
-  // [E] Animation crossFade — only on state change
-  if (state.mixer && moving !== state.isWalking) {
+  // Animation: crossFade if clips exist; otherwise procedural bob
+  if (state.mixer) {
+    // Clip-based animation (only runs if VRM has embedded clips)
+    if (moving !== state.isWalking) {
+      state.isWalking = moving;
+      if (moving && state.idleAction && state.walkAction) {
+        state.idleAction.crossFadeTo(state.walkAction, FADE_T, true);
+      } else if (!moving && state.walkAction && state.idleAction) {
+        state.walkAction.crossFadeTo(state.idleAction, FADE_T, true);
+      }
+    }
+  } else {
+    // Procedural animation fallback for VRMs with no embedded clips
+    // Uses VRM humanoid bone API if available, otherwise moves the root
     state.isWalking = moving;
-    if (moving && state.idleAction && state.walkAction) {
-      state.idleAction.crossFadeTo(state.walkAction, FADE_T, true);
-    } else if (!moving && state.walkAction && state.idleAction) {
-      state.walkAction.crossFadeTo(state.idleAction, FADE_T, true);
+    const t = clock.elapsedTime;
+    if (state.vrm && state.vrm.humanoid) {
+      const h = state.vrm.humanoid;
+      if (moving) {
+        // Walking: swing arms and legs alternately
+        const swing = Math.sin(t * 8) * 0.4;
+        const bob   = Math.abs(Math.sin(t * 8)) * 0.02;
+        // Arm swing (opposite to legs)
+        h.getNormalizedBoneNode('leftUpperArm')  && (h.getNormalizedBoneNode('leftUpperArm').rotation.x  =  swing * 0.6);
+        h.getNormalizedBoneNode('rightUpperArm') && (h.getNormalizedBoneNode('rightUpperArm').rotation.x = -swing * 0.6);
+        // Leg swing
+        h.getNormalizedBoneNode('leftUpperLeg')  && (h.getNormalizedBoneNode('leftUpperLeg').rotation.x  = -swing * 0.5);
+        h.getNormalizedBoneNode('rightUpperLeg') && (h.getNormalizedBoneNode('rightUpperLeg').rotation.x =  swing * 0.5);
+        // Body bob
+        state.vrm.scene.position.y = state.charPos.y + bob;
+      } else {
+        // Idle: gentle breathing sway
+        const breathe = Math.sin(t * 1.5) * 0.008;
+        h.getNormalizedBoneNode('spine')  && (h.getNormalizedBoneNode('spine').rotation.z  = breathe);
+        h.getNormalizedBoneNode('chest')  && (h.getNormalizedBoneNode('chest').rotation.z  = breathe * 0.5);
+        // Reset limbs
+        h.getNormalizedBoneNode('leftUpperArm')  && (h.getNormalizedBoneNode('leftUpperArm').rotation.x  = 0);
+        h.getNormalizedBoneNode('rightUpperArm') && (h.getNormalizedBoneNode('rightUpperArm').rotation.x = 0);
+        h.getNormalizedBoneNode('leftUpperLeg')  && (h.getNormalizedBoneNode('leftUpperLeg').rotation.x  = 0);
+        h.getNormalizedBoneNode('rightUpperLeg') && (h.getNormalizedBoneNode('rightUpperLeg').rotation.x = 0);
+      }
     }
   }
 
