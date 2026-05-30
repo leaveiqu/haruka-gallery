@@ -987,8 +987,6 @@ FINGER_NAMES.forEach(finger => {
       b.rotation.x = 0; 
       b.rotation.y = 0; 
       
-      // 終極黑魔法：如果是左手，方向乘上 -1 把它反過來；如果是右手，保持 1 不變。
-      // 這樣可以完全繞過容易出錯的 if/else 大括號結構！
       const directionMultiplier = (side === 'left') ? -1 : 1;
       
       b.rotation.z = FINGER_CURL[joint] * directionMultiplier; 
@@ -1044,24 +1042,8 @@ FINGER_NAMES.forEach(finger => {
         if (bone('leftUpperLeg'))  bone('leftUpperLeg').rotation.x  = -swing * 0.55;
         if (bone('rightUpperLeg')) bone('rightUpperLeg').rotation.x =  swing * 0.55;
         // 【小腿】膝蓋自然折疊（只在後擺時彎曲）
-const leftKneeAngle = Math.max(0, -swing) * 1.25 + 0.1;
-        const leftLeg = bone('leftLowerLeg');
-        if (leftLeg) {
-            leftLeg.rotation.x = leftKneeAngle; // 寫法 1
-            if (leftLeg.vrmBone && leftLeg.vrmBone.node) {
-                leftLeg.vrmBone.node.rotation.x = leftKneeAngle; // 寫法 2（突破動畫封鎖）
-            }
-        }
-
-        // 2. 右膝蓋計算
-        const rightKneeAngle = Math.max(0, swing) * 1.25 + 0.1;
-        const rightLeg = bone('rightLowerLeg');
-        if (rightLeg) {
-            rightLeg.rotation.x = rightKneeAngle; // 寫法 1
-            if (rightLeg.vrmBone && rightLeg.vrmBone.node) {
-                rightLeg.vrmBone.node.rotation.x = rightKneeAngle; // 寫法 2（突破動畫封鎖）
-            }
-        }
+        if (bone('leftLowerLeg'))  bone('leftLowerLeg').rotation.x  = Math.max(0, -swing) * 0.35;
+        if (bone('rightLowerLeg')) bone('rightLowerLeg').rotation.x = Math.max(0,  swing) * 0.35;
 
         // 【身體輕微上下晃動】
         state.vrm.scene.position.y = state.charPos.y + bob;
