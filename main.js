@@ -978,17 +978,16 @@ function updateCharacter(dt) {
 const applyFingerCurl = () => {
   ['left', 'right'].forEach(side => {
     
-// ⚡ 請把 1. 四指這段代碼改成這樣：
+// ⚡ 請把四指這段代碼精準改成這樣：
 FINGER_NAMES.forEach(finger => {
   FINGER_JOINTS.forEach(joint => {
     const boneName = `${side}${finger}${joint}`; 
     const b = bone(boneName);
     
     if (b) {
-      // 關鍵修正：從正數 1.5 改回負數變數 FINGER_CURL
-      // 負數會讓剛才往後折的手指，全部往前（掌心）自然微蜷！
-      b.rotation.x = FINGER_CURL[joint]; 
-      b.rotation.y = 0;
+      // 關鍵修正：把剛剛導致自轉的 x 歸零，全部改走 y 軸！
+      b.rotation.x = 0; 
+      b.rotation.y = FINGER_CURL[joint]; // 👈 切換到 Y 軸
       b.rotation.z = 0;
     }
   });
