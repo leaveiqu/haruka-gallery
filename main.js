@@ -977,6 +977,7 @@ function updateCharacter(dt) {
 const applyFingerCurl = () => {
   ['left', 'right'].forEach(side => {
     
+// ⚡ 請把 1. 四指這段代碼，完完整整替換成下面這樣：
 FINGER_NAMES.forEach(finger => {
   FINGER_JOINTS.forEach(joint => {
     const boneName = `${side}${finger}${joint}`; 
@@ -986,12 +987,11 @@ FINGER_NAMES.forEach(finger => {
       b.rotation.x = 0; 
       b.rotation.y = 0; 
       
-
-      if (side === 'left') {
-        b.rotation.z = -FINGER_CURL[joint]; 
-      } else {
-        b.rotation.z = FINGER_CURL[joint]; 
-      }
+      // 終極黑魔法：如果是左手，方向乘上 -1 把它反過來；如果是右手，保持 1 不變。
+      // 這樣可以完全繞過容易出錯的 if/else 大括號結構！
+      const directionMultiplier = (side === 'left') ? -1 : 1;
+      
+      b.rotation.z = FINGER_CURL[joint] * directionMultiplier; 
     }
   });
 });
