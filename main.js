@@ -1148,8 +1148,8 @@ FINGER_NAMES.forEach(finger => {
         // 左小腿用 Math.max(0, swing)  → 前踢時彎（錯）
         // 左小腿用 Math.max(0, -swing) → 後收時彎（錯，你測出來反的）
         // ∴ 直接對調：左小腿跟右大腿同步，右小腿跟左大腿同步
-        const kneeBase = 0.12;
-        const kneeAmp  = 0.72;
+        const kneeBase = 0.25;
+        const kneeAmp  = 2.20;
 
         if (bone('leftLowerLeg')) {
           // 左大腿前踢（swing>0）→ 左小腿膝蓋彎曲（對應後收動作）
