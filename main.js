@@ -58,13 +58,17 @@ const C_GOLD  = 0xc9a96e;
 //             For colour-only frames, used as-is.
 // ─────────────────────────────────────────────────────────────────
 const ARTWORKS = [
+  // ══════════════════════════════════════════════════════════
+  //  後牆（z = -21.7）— 正面最顯眼，共 5 幅，間距 4.5m
+  //  rotY: 0  畫面朝向入口（+Z 方向）
+  // ══════════════════════════════════════════════════════════
   {
     title: 'test',
     desc:  '四月の校庭。散りゆく桜の花びらが風に乗って舞い上がり、遥の笑顔を縁取る。「また来年も一緒に見ようね」——あの約束は、今も胸の中で咲き続けている。',
     meta:  'Digital · 2024',
     color: 0xffe4e8, accent: C_BLUE,
     tex:   'images/1031.png',
-    pos:   [-10, 2.3, -ROOM_D / 2 + 0.35], rotY: 0, size: [3.2, 2.4],
+    pos:   [-9, 2.3, -ROOM_D / 2 + 0.35], rotY: 0, size: [3.2, 2.4],
   },
   {
     title: 'Clover Stage',
@@ -78,35 +82,113 @@ const ARTWORKS = [
     desc:  '閉館後の水族館、二人きり。水槽の青い光が遥の横顔を照らす。ペンギンたちが泳ぎ回る中、時間だけが静かに溶けていった。',
     meta:  'Digital · 2024',
     color: 0xb8e0ff, accent: C_BLUE,
-    pos:   [10, 2.3, -ROOM_D / 2 + 0.35], rotY: 0, size: [2.8, 1.9],
+    pos:   [9, 2.3, -ROOM_D / 2 + 0.35], rotY: 0, size: [2.8, 1.9],
   },
+
+  // ══════════════════════════════════════════════════════════
+  //  左牆（x = -13.7）— 共 6 幅，z 從 -18 到 +16，間距 ~6.5m
+  //  rotY: Math.PI / 2  畫面朝向右側（+X 方向）
+  // ══════════════════════════════════════════════════════════
   {
     title: '四葉のお守り',
     desc:  '手のひらに乗った小さな四葉のクローバー。「これ、きみに」——あの日渡されたお守りは、今でも財布の中で光り続けている。',
     meta:  'Digital · 2024',
     color: 0xc8f0a0, accent: C_GREEN,
-    pos:   [-ROOM_W / 2 + 0.35, 2.3, 0], rotY: Math.PI / 2, size: [2.4, 1.7],
+    pos:   [-ROOM_W / 2 + 0.35, 2.3, -16], rotY: Math.PI / 2, size: [2.4, 1.7],
   },
   {
     title: 'Blue Horizon',
     desc:  '遥かな水平線。水色と白だけで描かれた世界に、ひとつの星が瞬く。「どんなに遠くても、同じ空の下にいるから大丈夫」',
     meta:  'Digital · 2024',
     color: 0xd0ecff, accent: C_BLUE,
-    pos:   [-ROOM_W / 2 + 0.35, 2.3, 10], rotY: Math.PI / 2, size: [2.4, 1.7],
+    pos:   [-ROOM_W / 2 + 0.35, 2.3, -8], rotY: Math.PI / 2, size: [2.4, 1.7],
   },
+  {
+    title: '春の記憶',
+    desc:  '桜並木の下を二人で歩いた、あの春の午後。風が運んでくる花びらの香りと、遥の笑い声が今でも耳に残っている。',
+    meta:  'Digital · 2024',
+    color: 0xffd6e7, accent: C_BLUE,
+    pos:   [-ROOM_W / 2 + 0.35, 2.3, 0], rotY: Math.PI / 2, size: [2.4, 1.7],
+  },
+  {
+    title: 'Midnight Sky',
+    desc:  '深夜の屋上。星がこんなに綺麗に見えるなんて知らなかった。「ねえ、あの星に名前をつけよう」——遥が空を指さした瞬間、時間が止まった。',
+    meta:  'Digital · 2024',
+    color: 0x1a1a3e, accent: C_BLUE,
+    pos:   [-ROOM_W / 2 + 0.35, 2.3, 8], rotY: Math.PI / 2, size: [2.4, 1.7],
+  },
+  {
+    title: '緑の午後',
+    desc:  'More More Jump! の練習後、みんなで寝転んだ芝生の上。空の青さと草の緑が、あの日の幸せをそのまま閉じ込めている。',
+    meta:  'Digital · 2024',
+    color: 0xc5e8b0, accent: C_GREEN,
+    pos:   [-ROOM_W / 2 + 0.35, 2.3, 16], rotY: Math.PI / 2, size: [2.4, 1.7],
+  },
+
+  // ══════════════════════════════════════════════════════════
+  //  右牆（x = +13.7）— 共 6 幅，z 從 -18 到 +16，間距 ~6.5m
+  //  rotY: -Math.PI / 2  畫面朝向左側（-X 方向）
+  // ══════════════════════════════════════════════════════════
   {
     title: 'Happy Birthday, 遥',
     desc:  '今日という特別な日に、あなたへ届けたい言葉がある。いつも笑顔をありがとう。これからもずっと、あなたの隣で応援し続けるよ。🎂💚',
     meta:  'With Love · 2024',
     color: 0xfff0d0, accent: C_GOLD,
-    pos:   [ROOM_W / 2 - 0.35, 2.3, 0], rotY: -Math.PI / 2, size: [3.0, 2.0],
+    pos:   [ROOM_W / 2 - 0.35, 2.3, -16], rotY: -Math.PI / 2, size: [3.0, 2.0],
   },
   {
     title: 'Penguin Parade',
     desc:  '桐谷遙の愛するペンギンたち。よちよち歩きのフォルムが愛らしく、見ているだけで心がほっこりする。「ねぇ、一番右の子が一番かわいくない？」',
     meta:  'Digital · 2024',
     color: 0xe0f4ff, accent: C_BLUE,
-    pos:   [ROOM_W / 2 - 0.35, 2.3, 10], rotY: -Math.PI / 2, size: [2.4, 1.7],
+    pos:   [ROOM_W / 2 - 0.35, 2.3, -8], rotY: -Math.PI / 2, size: [2.4, 1.7],
+  },
+  {
+    title: '冬のかけら',
+    desc:  '初雪の朝、窓の外を見ていたら遥からメッセージが届いた。「雪、見てる？」——たった一言なのに、どうしてこんなに温かいんだろう。',
+    meta:  'Digital · 2024',
+    color: 0xe8f4ff, accent: C_BLUE,
+    pos:   [ROOM_W / 2 - 0.35, 2.3, 0], rotY: -Math.PI / 2, size: [2.4, 1.7],
+  },
+  {
+    title: 'Summer Soda',
+    desc:  '夏祭りの縁日で飲んだラムネの味。氷の溶けた音と、遥の弾ける笑顔。あの夏は一生忘れられない。',
+    meta:  'Digital · 2024',
+    color: 0xb8f0ff, accent: C_BLUE,
+    pos:   [ROOM_W / 2 - 0.35, 2.3, 8], rotY: -Math.PI / 2, size: [2.4, 1.7],
+  },
+  {
+    title: '光の粒',
+    desc:  'ステージの上、スポットライトを浴びた遥は別次元の輝きを放っていた。あの光の粒のひとつひとつが、わたしの宝物になった。',
+    meta:  'Digital · 2024',
+    color: 0xfffde0, accent: C_GOLD,
+    pos:   [ROOM_W / 2 - 0.35, 2.3, 16], rotY: -Math.PI / 2, size: [2.4, 1.7],
+  },
+
+  // ══════════════════════════════════════════════════════════
+  //  前牆（z = +21.7）— 入口後方牆面，共 3 幅
+  //  rotY: Math.PI  畫面朝向畫廊內部（-Z 方向）
+  // ══════════════════════════════════════════════════════════
+  {
+    title: '始まりの扉',
+    desc:  'この美術館に足を踏み入れたあなたへ。ここにあるすべての作品は、遥への愛と感謝を込めて作られました。ゆっくりと、楽しんでいってください。',
+    meta:  'Prologue · 2024',
+    color: 0xf0ece0, accent: C_GOLD,
+    pos:   [-8, 2.3, ROOM_D / 2 - 0.35], rotY: Math.PI, size: [2.6, 1.8],
+  },
+  {
+    title: 'More More Jump!',
+    desc:  '遥、寧々、絵名、瑞希。四人が集まればどんな夢も叶う気がした。More More Jump! の音楽は、いつだってわたしの背中を押してくれる。',
+    meta:  'Digital · 2024',
+    color: 0xd8f5c0, accent: C_GREEN,
+    pos:   [0, 2.3, ROOM_D / 2 - 0.35], rotY: Math.PI, size: [2.8, 1.9],
+  },
+  {
+    title: 'ありがとう',
+    desc:  'この一年、たくさんの思い出をありがとう。これからも一緒に笑って、泣いて、また笑おう。あなたの笑顔がわたしの原動力です。誕生日おめでとう。',
+    meta:  'With Love · 2024',
+    color: 0xffe8f0, accent: C_GOLD,
+    pos:   [8, 2.3, ROOM_D / 2 - 0.35], rotY: Math.PI, size: [2.6, 1.8],
   },
 ];
 
@@ -1051,28 +1133,37 @@ FINGER_NAMES.forEach(finger => {
         if (bone('rightLowerArm')) bone('rightLowerArm').rotation.x = -0.4;
 
         // 【大腿】前後交替擺動
-        // swing > 0 = 左腿後擺 / 右腿前擺
+        // swing > 0：左腿前踢、右腿後收
+        // swing < 0：左腿後收、右腿前踢
         if (bone('leftUpperLeg'))  bone('leftUpperLeg').rotation.x  = -swing * 0.60;
         if (bone('rightUpperLeg')) bone('rightUpperLeg').rotation.x =  swing * 0.60;
 
         // 【小腿 / 膝蓋】自然彎曲邏輯：
-        // 真實步行：收腿後擺時膝蓋彎曲最多，前踢時接近伸直。
-        // kneeBase = 走路時膝蓋最小彎曲量，防止腿伸直鎖死（更自然）。
-        // Math.max(0, swing)  → 左腿後擺（swing>0）時額外彎曲。
-        // Math.max(0, -swing) → 右腿後擺（swing<0）時額外彎曲。
-        const kneeBase = 0.15;  // 最小彎曲（弧度）
-        const kneeAmp  = 0.65;  // 最大額外彎曲幅度
+        // 腿後收時（大腿往後擺）→ 小腿膝蓋彎曲最多
+        // 腿前踢時（大腿往前擺）→ 小腿接近伸直
+        //
+        // 左腿大腿 rotation.x = -swing * 0.60
+        //   swing > 0 → 大腿往前（前踢）→ 小腿應伸直 → 彎曲量小
+        //   swing < 0 → 大腿往後（後收）→ 小腿應彎曲 → 彎曲量大
+        // 所以左小腿用 Math.max(0, -swing)（swing為負時才彎）
+        //
+        // 右腿大腿 rotation.x = +swing * 0.60，邏輯相反
+        // 右小腿用 Math.max(0, swing)
+        const kneeBase = 0.12;  // 走路時膝蓋始終保持的最小彎曲，防止鎖死
+        const kneeAmp  = 0.72;  // 後收時的最大額外彎曲幅度
 
         if (bone('leftLowerLeg')) {
-          bone('leftLowerLeg').rotation.x = kneeBase + Math.max(0, swing) * kneeAmp;
+          // 左腿後收（swing<0）時彎曲
+          bone('leftLowerLeg').rotation.x = kneeBase + Math.max(0, -swing) * kneeAmp;
         }
         if (bone('rightLowerLeg')) {
-          bone('rightLowerLeg').rotation.x = kneeBase + Math.max(0, -swing) * kneeAmp;
+          // 右腿後收（swing>0）時彎曲
+          bone('rightLowerLeg').rotation.x = kneeBase + Math.max(0, swing) * kneeAmp;
         }
 
-        // 【腳踝】前踢時腳尖微翹，後擺時放鬆下垂
-        if (bone('leftFoot'))  bone('leftFoot').rotation.x  = -swing * 0.22;
-        if (bone('rightFoot')) bone('rightFoot').rotation.x =  swing * 0.22;
+        // 【腳踝】前踢時腳尖微翹，後收時腳掌自然下垂
+        if (bone('leftFoot'))  bone('leftFoot').rotation.x  =  swing * 0.20;
+        if (bone('rightFoot')) bone('rightFoot').rotation.x = -swing * 0.20;
 
         // 【身體輕微上下晃動】
         state.vrm.scene.position.y = state.charPos.y + bob;
