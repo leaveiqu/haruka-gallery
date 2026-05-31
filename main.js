@@ -1154,11 +1154,11 @@ FINGER_NAMES.forEach(finger => {
 
         if (bone('leftLowerLeg')) {
           // 左腿後收（swing<0）時彎曲
-          bone('leftLowerLeg').rotation.x = kneeBase + Math.max(0, -swing) * kneeAmp;
+          bone('leftLowerLeg').rotation.x = kneeBase + Math.max(0, swing) * kneeAmp;
         }
         if (bone('rightLowerLeg')) {
           // 右腿後收（swing>0）時彎曲
-          bone('rightLowerLeg').rotation.x = kneeBase + Math.max(0, swing) * kneeAmp;
+          bone('rightLowerLeg').rotation.x = kneeBase + Math.max(0, -swing) * kneeAmp;
         }
 
         // 【腳踝】前踢時腳尖微翹，後收時腳掌自然下垂
