@@ -354,15 +354,31 @@ function cloverMat() {
 function buildClover(cx, cy, cz, scale=1, flat=true) {
   const lR = 0.22*scale, lS = 0.32*scale;
   const geo = new THREE.PlaneGeometry(lS, lS); // [PERF] shared geo per call
+// ⚡ 請把 buildClover 裡面的 for 迴圈精準替換成這段：
   for (let i=0;i<3;i++) {
     const a = (i*Math.PI*2)/3;
     const pl = new THREE.Mesh(geo, cloverMat());
+    
+    // 【調整半徑】原本是 0.22*scale，我們把它縮小（例如改成 0.1*scale）
+    // 數值越小，三個愛心的尖端就會靠得越近！
+    const closeRadius = 0.1 * scale; 
+    
     if (flat) {
-      pl.rotation.x = -Math.PI/2; pl.rotation.z = a;
-      pl.position.set(cx+Math.sin(a)*lR, cy+0.006, cz+Math.cos(a)*lR);
+      // 1. 地板上的平鋪三葉草
+      pl.rotation.x = -Math.PI/2; 
+      
+      // 關鍵修正：加上 Math.PI (等於轉 180 度)，讓愛心尖端原轉朝內指向圓心！
+      pl.rotation.z = a + Math.PI; 
+      
+      // 使用縮小後的半徑 closeRadius 重新定位
+      pl.position.set(cx+Math.sin(a)*closeRadius, cy+0.006, cz+Math.cos(a)*closeRadius);
     } else {
-      pl.rotation.y = -a; pl.rotation.z = Math.PI;
-      pl.position.set(cx+Math.sin(a)*lR, cy, cz+Math.cos(a)*lR);
+      // 2. 立體的三葉草（如果有的話）
+      // 關鍵修正：原本是 -a，我們把它加上 Math.PI 讓它反轉朝內
+      pl.rotation.y = -a + Math.PI; 
+      pl.rotation.z = Math.PI;
+      
+      pl.position.set(cx+Math.sin(a)*closeRadius, cy, cz+Math.cos(a)*closeRadius);
     }
     scene.add(pl);
   }
