@@ -361,7 +361,7 @@ function buildClover(cx, cy, cz, scale=1, flat=true) {
     
     // 【調整半徑】原本是 0.22*scale，我們把它縮小（例如改成 0.1*scale）
     // 數值越小，三個愛心的尖端就會靠得越近！
-    const closeRadius = 0.14 * scale; 
+    const closeRadius = 0.16 * scale; 
     
     if (flat) {
       // 1. 地板上的平鋪三葉草
@@ -382,10 +382,6 @@ function buildClover(cx, cy, cz, scale=1, flat=true) {
     }
     scene.add(pl);
   }
-  const sM = new THREE.MeshStandardMaterial({ color: C_GREEN, roughness: 0.5, emissive: new THREE.Color(C_GREEN), emissiveIntensity: 0.1 });
-  const sH = flat ? 0.008 : 0.22*scale;
-  const st = new THREE.Mesh(new THREE.CylinderGeometry(0.02*scale, 0.025*scale, sH, 8), sM);
-  st.position.set(cx, cy+sH/2, cz); scene.add(st);
 }
 
 // ─────────────────────────────────────────────────────────────────
