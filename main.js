@@ -1051,11 +1051,28 @@ FINGER_NAMES.forEach(finger => {
         if (bone('rightLowerArm')) bone('rightLowerArm').rotation.x = -0.4;
 
         // 【大腿】前後交替擺動
-        if (bone('leftUpperLeg'))  bone('leftUpperLeg').rotation.x  = -swing * 0.55;
-        if (bone('rightUpperLeg')) bone('rightUpperLeg').rotation.x =  swing * 0.55;
-        // 【小腿】膝蓋自然折疊（只在後擺時彎曲）
-        if (bone('leftLowerLeg'))  bone('leftLowerLeg').rotation.x  = Math.max(0, -swing) * 0.35;
-        if (bone('rightLowerLeg')) bone('rightLowerLeg').rotation.x = Math.max(0,  swing) * 0.35;
+        // swing > 0 = 左腿後擺 / 右腿前擺
+        if (bone('leftUpperLeg'))  bone('leftUpperLeg').rotation.x  = -swing * 0.60;
+        if (bone('rightUpperLeg')) bone('rightUpperLeg').rotation.x =  swing * 0.60;
+
+        // 【小腿 / 膝蓋】自然彎曲邏輯：
+        // 真實步行：收腿後擺時膝蓋彎曲最多，前踢時接近伸直。
+        // kneeBase = 走路時膝蓋最小彎曲量，防止腿伸直鎖死（更自然）。
+        // Math.max(0, swing)  → 左腿後擺（swing>0）時額外彎曲。
+        // Math.max(0, -swing) → 右腿後擺（swing<0）時額外彎曲。
+        const kneeBase = 0.15;  // 最小彎曲（弧度）
+        const kneeAmp  = 0.65;  // 最大額外彎曲幅度
+
+        if (bone('leftLowerLeg')) {
+          bone('leftLowerLeg').rotation.x = kneeBase + Math.max(0, swing) * kneeAmp;
+        }
+        if (bone('rightLowerLeg')) {
+          bone('rightLowerLeg').rotation.x = kneeBase + Math.max(0, -swing) * kneeAmp;
+        }
+
+        // 【腳踝】前踢時腳尖微翹，後擺時放鬆下垂
+        if (bone('leftFoot'))  bone('leftFoot').rotation.x  = -swing * 0.22;
+        if (bone('rightFoot')) bone('rightFoot').rotation.x =  swing * 0.22;
 
         // 【身體輕微上下晃動】
         state.vrm.scene.position.y = state.charPos.y + bob;
