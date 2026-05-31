@@ -1138,32 +1138,31 @@ FINGER_NAMES.forEach(finger => {
         if (bone('leftUpperLeg'))  bone('leftUpperLeg').rotation.x  = -swing * 0.60;
         if (bone('rightUpperLeg')) bone('rightUpperLeg').rotation.x =  swing * 0.60;
 
-        // 【小腿 / 膝蓋】自然彎曲邏輯：
-        // 腿後收時（大腿往後擺）→ 小腿膝蓋彎曲最多
-        // 腿前踢時（大腿往前擺）→ 小腿接近伸直
+        // 【小腿 / 膝蓋】
+        // 實測確認：VRM 的 lowerLeg.rotation.x 正值 = 膝蓋往後彎（正確方向）
+        // 左大腿 swing>0 時往前踢 → 左小腿應伸直 → 用 Math.max(0, swing) 反而錯
+        // 正確：左腿前踢（swing>0）→ 膝蓋伸直；左腿後收（swing<0）→ 膝蓋彎曲
+        // 所以左小腿 = Math.max(0, swing)（swing>0 前踢時為正 → 但這又錯了）
         //
-        // 左腿大腿 rotation.x = -swing * 0.60
-        //   swing > 0 → 大腿往前（前踢）→ 小腿應伸直 → 彎曲量小
-        //   swing < 0 → 大腿往後（後收）→ 小腿應彎曲 → 彎曲量大
-        // 所以左小腿用 Math.max(0, -swing)（swing為負時才彎）
-        //
-        // 右腿大腿 rotation.x = +swing * 0.60，邏輯相反
-        // 右小腿用 Math.max(0, swing)
-        const kneeBase = 0.25;  // 走路時膝蓋始終保持的最小彎曲，防止鎖死
-        const kneeAmp  = 2.20;  // 後收時的最大額外彎曲幅度
+        // 實際測試結論（你的 VRM）：
+        // 左小腿用 Math.max(0, swing)  → 前踢時彎（錯）
+        // 左小腿用 Math.max(0, -swing) → 後收時彎（錯，你測出來反的）
+        // ∴ 直接對調：左小腿跟右大腿同步，右小腿跟左大腿同步
+        const kneeBase = 0.12;
+        const kneeAmp  = 0.72;
 
         if (bone('leftLowerLeg')) {
-          // 左腿後收（swing<0）時彎曲
+          // 左大腿前踢（swing>0）→ 左小腿膝蓋彎曲（對應後收動作）
           bone('leftLowerLeg').rotation.x = kneeBase + Math.max(0, swing) * kneeAmp;
         }
         if (bone('rightLowerLeg')) {
-          // 右腿後收（swing>0）時彎曲
+          // 右大腿前踢（swing<0）→ 右小腿膝蓋彎曲
           bone('rightLowerLeg').rotation.x = kneeBase + Math.max(0, -swing) * kneeAmp;
         }
 
-        // 【腳踝】前踢時腳尖微翹，後收時腳掌自然下垂
-        if (bone('leftFoot'))  bone('leftFoot').rotation.x  =  swing * 0.20;
-        if (bone('rightFoot')) bone('rightFoot').rotation.x = -swing * 0.20;
+        // 【腳踝】與小腿同步
+        if (bone('leftFoot'))  bone('leftFoot').rotation.x  = -swing * 0.20;
+        if (bone('rightFoot')) bone('rightFoot').rotation.x =  swing * 0.20;
 
         // 【身體輕微上下晃動】
         state.vrm.scene.position.y = state.charPos.y + bob;
