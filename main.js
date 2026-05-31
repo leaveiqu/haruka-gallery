@@ -1150,7 +1150,7 @@ FINGER_NAMES.forEach(finger => {
         // 右大腿 rotation.x = +swing * 0.60，邏輯相反
         // ∴ 右小腿彎曲量 ∝ Math.max(0, -swing)
         const kneeBase = 0.12;   // 走路時膝蓋的最小彎曲（防止完全鎖直）
-        const kneeAmp  = 1.15;   // 前踢頂點時的最大額外彎曲幅度
+        const kneeAmp  = 2.2;   // 前踢頂點時的最大額外彎曲幅度
 
         if (bone('leftLowerLeg')) {
           bone('leftLowerLeg').rotation.x = kneeBase + Math.max(0, swing) * kneeAmp;
