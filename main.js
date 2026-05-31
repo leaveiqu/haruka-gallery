@@ -1135,8 +1135,8 @@ FINGER_NAMES.forEach(finger => {
         // 【大腿】前後交替擺動
         // swing > 0：左腿前踢、右腿後收
         // swing < 0：左腿後收、右腿前踢
-        if (bone('leftUpperLeg'))  bone('leftUpperLeg').rotation.x  = -swing * 0.80;
-        if (bone('rightUpperLeg')) bone('rightUpperLeg').rotation.x =  swing * 0.80;
+        if (bone('leftUpperLeg'))  bone('leftUpperLeg').rotation.x  = -swing * 0.70;
+        if (bone('rightUpperLeg')) bone('rightUpperLeg').rotation.x =  swing * 0.70;
 
         // 【小腿 / 膝蓋】正確走路生物力學：
         // 前踢時：大腿往前抬，小腿因慣性保持垂直 → 膝蓋彎曲最多
